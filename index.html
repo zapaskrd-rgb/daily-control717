@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ежедневный Самоконтроль</title>
-    <!-- Подключаем Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Все стили из предыдущей версии (компактно) */
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .filter-panel { background: #fff; padding: 10px 15px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
@@ -95,7 +93,6 @@
 <body>
     <h1>Ежедневный Самоконтроль</h1>
 
-    <!-- Панель фильтров -->
     <div class="filter-panel" id="filterPanel">
         <div class="filter-group" id="monthFilterGroup">
             <label>Месяцы:</label>
@@ -119,7 +116,6 @@
         </div>
     </div>
 
-    <!-- Админ-панель -->
     <div id="adminPanel" class="admin-panel" style="display:none;">
         <span>Режим администратора активен.</span>
         <button class="btn-success" onclick="addTask()">➕ Добавить задачу (Контроль задач)</button>
@@ -127,12 +123,10 @@
         <button class="reset-btn" style="background:#6c757d;" onclick="logoutAdmin()">Выйти</button>
     </div>
 
-    <!-- Модальное окно -->
     <div id="modal" class="modal">
         <div class="modal-content" id="modalContent"></div>
     </div>
 
-    <!-- Вкладки -->
     <div class="tabs" id="tabsContainer">
         <button class="tab-btn active" data-tab="tab1">Ежедневный Самоконтроль</button>
         <button class="tab-btn" data-tab="tab2">Контроль задач</button>
@@ -140,7 +134,6 @@
         <button class="tab-btn" data-tab="tab3" id="statsTabBtn" style="display:none;">Статистика</button>
     </div>
 
-    <!-- Контент -->
     <div id="contentContainer">
         <div id="tab1" class="tab-content active"></div>
         <div id="tab2" class="tab-content"></div>
@@ -148,7 +141,6 @@
         <div id="tab4" class="tab-content"></div>
     </div>
 
-    <!-- Футер -->
     <div class="footer">
         <span>Данные синхронизируются в реальном времени.</span>
         <button id="adminBtn" class="admin-btn">Админ</button>
@@ -156,9 +148,9 @@
 
     <script>
         // ====================================================================
-        // 1. ПОДКЛЮЧЕНИЕ SUPABASE (ВАШИ ДАННЫЕ)
+        // 1. ПОДКЛЮЧЕНИЕ SUPABASE
         // ====================================================================
-        const SUPABASE_URL = 'https://pqfswgavkhotvtdcfbcm.supabase.co';  // без /rest/v1/
+        const SUPABASE_URL = 'https://pqfswgavkhotvtdcfbcm.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_eB_viieych0bhJapY0tL_g_9y5zJ9DQ';
 
         const { createClient } = supabase;
@@ -167,9 +159,7 @@
         let currentUserId = null;
         let appData = null;
         let subscription = null;
-        let isRealtimeConnected = false;
 
-        // Дефолтные данные (взяты из вашего исходного кода)
         const DEFAULT_DAILY_TASKS = {
             1: [
                 'История изменения ТОПов пополнения', 'УТО', 'Best Next',
@@ -238,15 +228,14 @@
                     .single();
 
                 if (error) {
-                    if (error.code === 'PGRST116') { // запись не найдена
+                    if (error.code === 'PGRST116') {
                         const initialData = {
                             dailyTasks: JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS)),
                             dailyNotes: {},
-                            controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS))
+                            controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS)),
+                            checkboxStates: {}
                         };
-                        await supabaseClient
-                            .from('app_data')
-                            .insert([{ id: 'main', data: initialData }]);
+                        await supabaseClient.from('app_data').insert([{ id: 'main', data: initialData }]);
                         appData = initialData;
                     } else {
                         console.error('Ошибка загрузки:', error);
@@ -256,7 +245,6 @@
                     appData = data.data;
                 }
 
-                // Подписываемся на изменения в реальном времени
                 setupRealtimeSubscription();
                 onDataLoaded();
             } catch (e) {
@@ -269,39 +257,28 @@
                 subscription.unsubscribe();
                 subscription = null;
             }
-
             subscription = supabaseClient
                 .channel('app_data_changes')
                 .on(
                     'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'app_data',
-                        filter: 'id=eq.main'
-                    },
+                    { event: 'UPDATE', schema: 'public', table: 'app_data', filter: 'id=eq.main' },
                     (payload) => {
                         appData = payload.new.data;
                         onDataLoaded();
                     }
                 )
-                .subscribe((status) => {
-                    if (status === 'SUBSCRIBED') {
-                        isRealtimeConnected = true;
-                        console.log('Подписка на обновления установлена');
-                    }
-                });
+                .subscribe();
         }
 
         function onDataLoaded() {
             if (!appData) return;
-            // Проверяем структуру
             if (!appData.dailyTasks) appData.dailyTasks = JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS));
             if (!appData.dailyNotes) appData.dailyNotes = {};
             if (!appData.controlTasks) appData.controlTasks = JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS));
             if (!appData.controlTasks.logs) appData.controlTasks.logs = [];
             if (!appData.controlTasks.taskStatus) appData.controlTasks.taskStatus = {};
-            // Перерисовка активной вкладки
+            if (!appData.checkboxStates) appData.checkboxStates = {};
+
             const activeTab = document.querySelector('.tab-content.active');
             if (activeTab) {
                 const tabId = activeTab.id;
@@ -312,14 +289,12 @@
             } else {
                 switchTab('tab1');
             }
-            applyAllStyles();
         }
 
         // ====================================================================
         // 3. СОХРАНЕНИЕ ДАННЫХ
         // ====================================================================
         async function saveAppData() {
-            console.log('💾 saveAppData вызван');
             if (!appData) return;
             try {
                 const { error } = await supabaseClient
@@ -332,7 +307,6 @@
             }
         }
 
-        // Обёртки
         function getDailyTasks() {
             return appData ? appData.dailyTasks : JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS));
         }
@@ -360,17 +334,13 @@
         }
 
         function addLog(taskId, depId, action, taskType, comment) {
-            console.log('🔍 addLog вызван:', taskId, depId, action);
             if (!appData) return;
             const now = new Date();
             const timestamp = now.toISOString();
             const date = now.toLocaleDateString('ru-RU');
             const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const logEntry = {
-                taskId: taskId,
-                depId: depId,
-                action: action,
-                timestamp: timestamp,
+                taskId, depId, action, timestamp,
                 date: date + ' ' + time,
                 userType: isAdmin ? 'admin' : 'user',
                 taskType: taskType || 'Контроль задач',
@@ -383,7 +353,7 @@
         }
 
         // ====================================================================
-        // 4. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // 4. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // ====================================================================
         const YEAR = 2026;
         const MONTHS = ['Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -398,21 +368,14 @@
         let changeLog = [];
 
         function addChange(description) {
-            if (isAdmin) {
-                changeLog.push(description);
-                hasUnsavedChanges = true;
-            }
+            if (isAdmin) { changeLog.push(description); hasUnsavedChanges = true; }
         }
 
         function loadState() {
             const savedMonths = localStorage.getItem('filter_months');
-            if (savedMonths) {
-                try { selectedMonths = JSON.parse(savedMonths); } catch(e) {}
-            }
+            if (savedMonths) { try { selectedMonths = JSON.parse(savedMonths); } catch(e) {} }
             const savedDays = localStorage.getItem('filter_days');
-            if (savedDays) {
-                try { selectedDays = JSON.parse(savedDays); } catch(e) {}
-            }
+            if (savedDays) { try { selectedDays = JSON.parse(savedDays); } catch(e) {} }
             const savedToday = localStorage.getItem('filter_today');
             if (savedToday === 'true') showTodayOnly = true;
             const savedAdmin = localStorage.getItem('isAdmin');
@@ -425,13 +388,8 @@
                 cb.checked = selectedDays.includes(parseInt(cb.value));
             });
             const todayBtn = document.getElementById('todayBtn');
-            if (showTodayOnly) {
-                todayBtn.classList.add('active');
-                todayBtn.textContent = 'Сегодня (вкл)';
-            } else {
-                todayBtn.classList.remove('active');
-                todayBtn.textContent = 'Сегодня';
-            }
+            if (showTodayOnly) { todayBtn.classList.add('active'); todayBtn.textContent = 'Сегодня (вкл)'; }
+            else { todayBtn.classList.remove('active'); todayBtn.textContent = 'Сегодня'; }
             const adminBtn = document.getElementById('adminBtn');
             if (isAdmin) {
                 adminBtn.classList.add('active');
@@ -446,10 +404,7 @@
                 document.getElementById('statsTabBtn').style.display = 'none';
                 document.getElementById('editorTabBtn').style.display = 'none';
             }
-            if (!isAdmin) {
-                hasUnsavedChanges = false;
-                changeLog = [];
-            }
+            if (!isAdmin) { hasUnsavedChanges = false; changeLog = []; }
         }
 
         function saveFilter() {
@@ -477,8 +432,6 @@
             const weeks = [];
             let firstDate = new Date(YEAR, monthIndex, 1);
             let dayOfWeek = firstDate.getDay();
-            let diffToMon = (dayOfWeek === 0) ? 1 : (8 - dayOfWeek) % 7;
-            if (dayOfWeek === 1) diffToMon = 0;
             firstDate.setDate(firstDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
             let current = new Date(firstDate);
             while (current.getMonth() <= monthIndex && current.getFullYear() === YEAR) {
@@ -487,11 +440,7 @@
                 for (let d = 0; d < 5; d++) {
                     const dateObj = new Date(current);
                     dateObj.setDate(dateObj.getDate() + d);
-                    week.push({
-                        dayOfWeek: d + 1,
-                        monthIndex: dateObj.getMonth(),
-                        date: dateObj.getDate()
-                    });
+                    week.push({ dayOfWeek: d + 1, monthIndex: dateObj.getMonth(), date: dateObj.getDate() });
                     if (dateObj.getMonth() === monthIndex) hasDayInMonth = true;
                 }
                 if (hasDayInMonth) weeks.push(week);
@@ -514,7 +463,7 @@
         }
 
         // ====================================================================
-        // 5. ПОСТРОЕНИЕ ТАБЛИЦ (ВКЛАДКА 1)
+        // 5. ВКЛАДКА 1 - ЕЖЕДНЕВНЫЙ САМОКОНТРОЛЬ
         // ====================================================================
         const DEPT_TABS = [
             { id: '1_КРД', label: '1 отдел Вика' },
@@ -565,7 +514,6 @@
 
             const table = buildTableForDept(currentDeptTab1);
             tableContainer.appendChild(table);
-            applyAllStyles();
         }
 
         function buildTableForDept(departmentId) {
@@ -573,9 +521,7 @@
             const tasksByDay = getDailyTasks();
             const notes = getDailyTaskNotes();
 
-            if (showTodayOnly) {
-                return buildTodayTable(departmentId, tasksByDay, notes);
-            }
+            if (showTodayOnly) return buildTodayTable(departmentId, tasksByDay, notes);
 
             const displayMonths = MONTH_INDEXES.filter((_, idx) => selectedMonths.includes(idx));
             if (displayMonths.length === 0) {
@@ -585,13 +531,11 @@
                 return div;
             }
 
-            const monthWeeks = displayMonths.map(mIdx => {
-                return {
-                    monthIndex: mIdx,
-                    monthName: MONTHS[MONTH_INDEXES.indexOf(mIdx)],
-                    weeks: getWeeksForMonth(mIdx)
-                };
-            });
+            const monthWeeks = displayMonths.map(mIdx => ({
+                monthIndex: mIdx,
+                monthName: MONTHS[MONTH_INDEXES.indexOf(mIdx)],
+                weeks: getWeeksForMonth(mIdx)
+            }));
 
             const activeDays = selectedDays.sort();
 
@@ -703,9 +647,8 @@
                                 const dateStr = formatDate(dayData.monthIndex, dayData.date);
                                 const cbId = `${departmentId}_${dow}_${taskIdx}_${dateStr}`;
                                 const isPassed = isDayPassedByDate(dayData);
-                                const savedState = localStorage.getItem(cbId + '_state');
-                                const savedDate = localStorage.getItem(cbId + '_date');
-                                const isChecked = (savedState === 'true');
+                                const cbState = appData.checkboxStates && appData.checkboxStates[cbId];
+                                const isChecked = cbState ? cbState.state === true : false;
 
                                 if (isPassed && !isChecked && !isAdmin) {
                                     const span = document.createElement('span');
@@ -720,17 +663,15 @@
                                     cb.checked = isChecked;
                                     if (isPassed && !isAdmin) cb.disabled = true;
                                     cb.addEventListener('change', function() {
-                                        console.log('✅ Чекбокс изменён, checked =', this.checked);
                                         const now = new Date().toISOString().slice(0, 10);
                                         const checked = this.checked;
+                                        if (!appData.checkboxStates) appData.checkboxStates = {};
                                         if (checked) {
-                                            localStorage.setItem(this.id + '_state', 'true');
-                                            localStorage.setItem(this.id + '_date', now);
+                                            appData.checkboxStates[this.id] = { state: true, date: now };
                                             const depNum = parseInt(departmentId.split('_')[0]) || 1;
                                             addLog('daily_' + dow + '_' + taskIdx, depNum, 'done', 'Ежедневный Самоконтроль', '');
                                         } else {
-                                            localStorage.setItem(this.id + '_state', 'false');
-                                            localStorage.removeItem(this.id + '_date');
+                                            appData.checkboxStates[this.id] = { state: false, date: null };
                                             const depNum = parseInt(departmentId.split('_')[0]) || 1;
                                             addLog('daily_' + dow + '_' + taskIdx, depNum, 'uncheck', 'Ежедневный Самоконтроль', '');
                                         }
@@ -775,12 +716,7 @@
             const dates = getDatesForDay(todayMonth, todayDay);
             dates.forEach(d => {
                 if (d === todayDate) {
-                    cols.push({
-                        monthIndex: todayMonth,
-                        monthName: MONTHS[monthIdx],
-                        dayOfWeek: todayDay,
-                        date: d
-                    });
+                    cols.push({ monthIndex: todayMonth, monthName: MONTHS[monthIdx], dayOfWeek: todayDay, date: d });
                 }
             });
             if (cols.length === 0) {
@@ -880,9 +816,8 @@
                     const dateStr = formatDate(col.monthIndex, col.date);
                     const cbId = `${departmentId}_${todayDay}_${taskIdx}_${dateStr}`;
                     const isPassed = isDayPassedByDate({ monthIndex: col.monthIndex, date: col.date });
-                    const savedState = localStorage.getItem(cbId + '_state');
-                    const savedDate = localStorage.getItem(cbId + '_date');
-                    const isChecked = (savedState === 'true');
+                    const cbState = appData.checkboxStates && appData.checkboxStates[cbId];
+                    const isChecked = cbState ? cbState.state === true : false;
                     if (isPassed && !isChecked && !isAdmin) {
                         const span = document.createElement('span');
                         span.textContent = '✕';
@@ -898,14 +833,13 @@
                         cb.addEventListener('change', function() {
                             const now = new Date().toISOString().slice(0, 10);
                             const checked = this.checked;
+                            if (!appData.checkboxStates) appData.checkboxStates = {};
                             if (checked) {
-                                localStorage.setItem(this.id + '_state', 'true');
-                                localStorage.setItem(this.id + '_date', now);
+                                appData.checkboxStates[this.id] = { state: true, date: now };
                                 const depNum = parseInt(departmentId.split('_')[0]) || 1;
                                 addLog('daily_' + todayDay + '_' + taskIdx, depNum, 'done', 'Ежедневный Самоконтроль', '');
                             } else {
-                                localStorage.setItem(this.id + '_state', 'false');
-                                localStorage.removeItem(this.id + '_date');
+                                appData.checkboxStates[this.id] = { state: false, date: null };
                                 const depNum = parseInt(departmentId.split('_')[0]) || 1;
                                 addLog('daily_' + todayDay + '_' + taskIdx, depNum, 'uncheck', 'Ежедневный Самоконтроль', '');
                             }
@@ -949,12 +883,13 @@
             const td = checkbox.closest('td');
             if (!td) return;
             const id = checkbox.id;
-            const savedState = localStorage.getItem(id + '_state');
-            const savedDate = localStorage.getItem(id + '_date');
+            const cbState = (appData.checkboxStates && appData.checkboxStates[id]) || null;
+            const savedState = cbState ? cbState.state : null;
+            const savedDate = cbState ? cbState.date : null;
             const parts = id.split('_');
             const plannedDate = parts[parts.length - 1];
             td.classList.remove('done-on-time', 'done-late', 'missed');
-            if (savedState === 'true') {
+            if (savedState === true) {
                 if (savedDate === plannedDate) td.classList.add('done-on-time');
                 else td.classList.add('done-late');
             }
@@ -965,12 +900,11 @@
         }
 
         // ====================================================================
-        // 6. ВТОРАЯ ВКЛАДКА – КОНТРОЛЬ ЗАДАЧ
+        // 6. ВКЛАДКА 2 - КОНТРОЛЬ ЗАДАЧ
         // ====================================================================
         function buildTab2() {
             const container = document.getElementById('tab2');
             container.innerHTML = '';
-
             const data = getControlTasksData();
             const tasks = data.tasks;
             const taskStatus = data.taskStatus;
@@ -1048,27 +982,19 @@
                     const td = document.createElement('td');
 
                     let cellClass = '';
-                    let cellContent = '';
                     if (status.blocked) {
                         cellClass = 'blocked-cell';
-                        cellContent = '⛔';
                     } else if (status.done) {
                         cellClass = 'done-cell';
-                        cellContent = '✅';
                         td.title = 'Нажмите для просмотра комментария';
                         td.addEventListener('click', function(e) {
-                            if (status.comment) {
-                                showCommentWithEdit(task.id, dep, status.comment);
-                            } else {
-                                alert('Комментарий не был оставлен.');
-                            }
+                            if (status.comment) showCommentWithEdit(task.id, dep, status.comment);
+                            else alert('Комментарий не был оставлен.');
                         });
                     } else {
                         const now = new Date();
                         const deadline = new Date(task.deadline + 'T00:00:00');
-                        if (now > deadline) {
-                            cellClass = 'overdue-cell';
-                        }
+                        if (now > deadline) cellClass = 'overdue-cell';
                         const cb = document.createElement('input');
                         cb.type = 'checkbox';
                         cb.checked = false;
@@ -1105,15 +1031,9 @@
                         td.appendChild(cb);
                     }
 
-                    if (status.blocked) {
-                        td.textContent = '⛔';
-                        td.className = cellClass;
-                    } else if (status.done) {
-                        td.textContent = '✅';
-                        td.className = cellClass;
-                    } else {
-                        td.className = cellClass;
-                    }
+                    if (status.blocked) { td.textContent = '⛔'; td.className = cellClass; }
+                    else if (status.done) { td.textContent = '✅'; td.className = cellClass; }
+                    else { td.className = cellClass; }
 
                     if (isAdmin) {
                         const blockBtn = document.createElement('button');
@@ -1137,7 +1057,6 @@
                         });
                         td.appendChild(blockBtn);
                     }
-
                     row.appendChild(td);
                 });
                 tbody.appendChild(row);
@@ -1155,7 +1074,7 @@
                 <h3>Комментарий к выполнению</h3>
                 <p><strong>Задача:</strong> ${getControlTasksData().tasks.find(t => t.id === taskId)?.title || ''}</p>
                 <p><strong>Отдел:</strong> ${depId}</p>
-                <div id="commentDisplay" style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${currentComment}</div>
+                <div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${currentComment}</div>
                 <br>
                 <button class="btn-ok" onclick="editCommentMode('${taskId}', ${depId})">Редактировать</button>
                 <button class="btn-cancel" onclick="closeModal()">Закрыть</button>
@@ -1181,10 +1100,7 @@
 
         function saveCommentEdit(taskId, depId) {
             const newComment = document.getElementById('editCommentText').value.trim();
-            if (!newComment) {
-                alert('Комментарий не может быть пустым.');
-                return;
-            }
+            if (!newComment) { alert('Комментарий не может быть пустым.'); return; }
             const data = getControlTasksData();
             const key = taskId + '_' + depId;
             if (data.taskStatus[key]) {
@@ -1199,10 +1115,7 @@
 
         function confirmTask(taskId, depId) {
             const comment = document.getElementById('commentInput').value.trim();
-            if (!comment) {
-                alert('Комментарий обязателен для подтверждения выполнения.');
-                return;
-            }
+            if (!comment) { alert('Комментарий обязателен для подтверждения выполнения.'); return; }
             const data = getControlTasksData();
             const key = taskId + '_' + depId;
             if (!data.taskStatus[key]) data.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
@@ -1231,12 +1144,11 @@
         }
 
         // ====================================================================
-        // 7. ТРЕТЬЯ ВКЛАДКА – СТАТИСТИКА
+        // 7. ВКЛАДКА 3 - СТАТИСТИКА
         // ====================================================================
         function buildTab3() {
             const container = document.getElementById('tab3');
             container.innerHTML = '';
-
             if (!isAdmin) {
                 container.innerHTML = '<div class="no-data">Доступно только в режиме администратора.</div>';
                 return;
@@ -1283,12 +1195,8 @@
                 const dateFilter = document.getElementById('statsDateFilter').value;
 
                 let filteredLogs = allLogs.filter(log => log.userType === 'user');
-                if (typeFilter !== 'all') {
-                    filteredLogs = filteredLogs.filter(log => log.taskType === typeFilter);
-                }
-                if (deptFilter !== 'all') {
-                    filteredLogs = filteredLogs.filter(log => log.depId === deptFilter);
-                }
+                if (typeFilter !== 'all') filteredLogs = filteredLogs.filter(log => log.taskType === typeFilter);
+                if (deptFilter !== 'all') filteredLogs = filteredLogs.filter(log => log.depId === deptFilter);
                 const now = new Date();
                 const todayStr = now.toISOString().slice(0, 10);
                 if (dateFilter === 'today') {
@@ -1303,9 +1211,7 @@
                 const statusMap = {};
                 filteredLogs.forEach(log => {
                     const key = log.taskId + '_' + log.depId;
-                    if (!statusMap[key] || new Date(log.timestamp) > new Date(statusMap[key].timestamp)) {
-                        statusMap[key] = log;
-                    }
+                    if (!statusMap[key] || new Date(log.timestamp) > new Date(statusMap[key].timestamp)) statusMap[key] = log;
                 });
 
                 const taskIds = new Set();
@@ -1328,13 +1234,8 @@
                 const thead = document.createElement('thead');
                 thead.innerHTML = `
                     <tr>
-                        <th>Задача</th>
-                        <th>Тип</th>
-                        <th>Дедлайн</th>
-                        <th>Отдел</th>
-                        <th>Статус</th>
-                        <th>Комментарий</th>
-                        <th>Дата выполнения</th>
+                        <th>Задача</th><th>Тип</th><th>Дедлайн</th><th>Отдел</th>
+                        <th>Статус</th><th>Комментарий</th><th>Дата выполнения</th>
                     </tr>
                 `;
                 statusTable.appendChild(thead);
@@ -1373,9 +1274,8 @@
                 percentTable.appendChild(pThead);
                 const pTbody = document.createElement('tbody');
                 const deptStats = {};
-                for (let d = 1; d <= DEPARTMENTS; d++) {
-                    deptStats[d] = { total: 0, done: 0, overdue: 0 };
-                }
+                for (let d = 1; d <= DEPARTMENTS; d++) deptStats[d] = { total: 0, done: 0, overdue: 0 };
+
                 const controlData = getControlTasksData();
                 const taskStatus = controlData.taskStatus;
                 const allControlTasks = controlData.tasks;
@@ -1383,9 +1283,7 @@
                 const dailyStatusMap = {};
                 dailyLogs.forEach(log => {
                     const key = log.taskId + '_' + log.depId;
-                    if (!dailyStatusMap[key] || new Date(log.timestamp) > new Date(dailyStatusMap[key].timestamp)) {
-                        dailyStatusMap[key] = log;
-                    }
+                    if (!dailyStatusMap[key] || new Date(log.timestamp) > new Date(dailyStatusMap[key].timestamp)) dailyStatusMap[key] = log;
                 });
 
                 for (let d = 1; d <= DEPARTMENTS; d++) {
@@ -1396,21 +1294,17 @@
                             deptStats[d].total++;
                             if (status.done) deptStats[d].done++;
                             if (!status.done && task.deadline && task.deadline !== '—') {
-                                const now = new Date();
+                                const now2 = new Date();
                                 const deadline = new Date(task.deadline + 'T00:00:00');
-                                if (now > deadline) deptStats[d].overdue++;
+                                if (now2 > deadline) deptStats[d].overdue++;
                             }
                         }
                     });
                     const dailyKeys = Object.keys(dailyStatusMap).filter(k => k.endsWith('_' + d));
                     dailyKeys.forEach(key => {
                         const log = dailyStatusMap[key];
-                        if (log.action === 'done') {
-                            deptStats[d].total++;
-                            deptStats[d].done++;
-                        } else if (log.action === 'uncheck' || log.action === 'block') {
-                            deptStats[d].total++;
-                        }
+                        if (log.action === 'done') { deptStats[d].total++; deptStats[d].done++; }
+                        else if (log.action === 'uncheck' || log.action === 'block') deptStats[d].total++;
                     });
                 }
 
@@ -1418,13 +1312,7 @@
                     const stat = deptStats[d];
                     const pct = stat.total > 0 ? Math.round((stat.done / stat.total) * 100) : 0;
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>Отдел ${d}</td>
-                        <td>${stat.done}</td>
-                        <td>${stat.total}</td>
-                        <td>${pct}%</td>
-                        <td>${stat.overdue}</td>
-                    `;
+                    tr.innerHTML = `<td>Отдел ${d}</td><td>${stat.done}</td><td>${stat.total}</td><td>${pct}%</td><td>${stat.overdue}</td>`;
                     pTbody.appendChild(tr);
                 }
                 percentTable.appendChild(pTbody);
@@ -1436,16 +1324,7 @@
                 const logTable = document.createElement('table');
                 logTable.className = 'stats-table';
                 const logThead = document.createElement('thead');
-                logThead.innerHTML = `
-                    <tr>
-                        <th>Наименование задачи</th>
-                        <th>Тип</th>
-                        <th>Дедлайн</th>
-                        <th>Время клика</th>
-                        <th>Действие</th>
-                        <th>Комментарий</th>
-                    </tr>
-                `;
+                logThead.innerHTML = `<tr><th>Наименование задачи</th><th>Тип</th><th>Дедлайн</th><th>Время клика</th><th>Действие</th><th>Комментарий</th></tr>`;
                 logTable.appendChild(logThead);
                 const logTbody = document.createElement('tbody');
                 const sortedLogs = filteredLogs.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -1458,17 +1337,14 @@
                         taskType = 'Ежедневный Самоконтроль';
                     } else {
                         const task = tasks.find(t => t.id === log.taskId);
-                        if (task) {
-                            taskTitle = task.title;
-                            deadline = task.deadline || '—';
-                        }
+                        if (task) { taskTitle = task.title; deadline = task.deadline || '—'; }
                     }
                     const tr = document.createElement('tr');
-                    const actionLabel = log.action === 'done' ? 'Выполнено' : 
-                                        (log.action === 'uncheck' ? 'Снято' : 
-                                        (log.action === 'block' ? 'Блокировка' : 
-                                        (log.action === 'edit_note' ? 'Редактирование заметки' : 
-                                        (log.action === 'delete_note' ? 'Удаление заметки' : 
+                    const actionLabel = log.action === 'done' ? 'Выполнено' :
+                                        (log.action === 'uncheck' ? 'Снято' :
+                                        (log.action === 'block' ? 'Блокировка' :
+                                        (log.action === 'edit_note' ? 'Редактирование заметки' :
+                                        (log.action === 'delete_note' ? 'Удаление заметки' :
                                         (log.action === 'edit_comment' ? 'Редактирование комментария' : log.action)))));
                     tr.innerHTML = `
                         <td>${taskTitle}</td>
@@ -1495,12 +1371,11 @@
         }
 
         // ====================================================================
-        // 8. ЧЕТВЁРТАЯ ВКЛАДКА – РЕДАКТОР ЗАДАЧ
+        // 8. ВКЛАДКА 4 - РЕДАКТОР ЗАДАЧ
         // ====================================================================
         function buildTab4() {
             const container = document.getElementById('tab4');
             container.innerHTML = '';
-
             if (!isAdmin) {
                 container.innerHTML = '<div class="no-data">Доступно только в режиме администратора.</div>';
                 return;
@@ -1508,7 +1383,6 @@
 
             const tasksByDay = getDailyTasks();
             const dayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница'];
-
             const editorDiv = document.createElement('div');
             editorDiv.className = 'task-editor';
 
@@ -1531,11 +1405,7 @@
                     input.value = task;
                     input.addEventListener('change', function() {
                         const newVal = this.value.trim();
-                        if (newVal === '') {
-                            alert('Задача не может быть пустой');
-                            this.value = task;
-                            return;
-                        }
+                        if (newVal === '') { alert('Задача не может быть пустой'); this.value = task; return; }
                         const data = getDailyTasks();
                         data[dow][idx] = newVal;
                         saveDailyTasks(data);
@@ -1561,7 +1431,6 @@
                     item.appendChild(delBtn);
                     list.appendChild(item);
                 });
-
                 block.appendChild(list);
 
                 const addForm = document.createElement('div');
@@ -1589,7 +1458,6 @@
                 addForm.appendChild(newInput);
                 addForm.appendChild(addBtn);
                 block.appendChild(addForm);
-
                 editorDiv.appendChild(block);
             }
 
@@ -1597,7 +1465,7 @@
         }
 
         // ====================================================================
-        // 9. РЕДАКТИРОВАНИЕ ЗАДАЧ (вторая вкладка)
+        // 9. РЕДАКТИРОВАНИЕ КОНТРОЛЬНЫХ ЗАДАЧ
         // ====================================================================
         function showTaskDescription(task) {
             const modal = document.getElementById('modal');
@@ -1652,9 +1520,7 @@
             if (!confirm('Удалить задачу?')) return;
             const data = getControlTasksData();
             const task = data.tasks.find(t => t.id === taskId);
-            if (task) {
-                addChange(`Задача "${task.title}" удалена из Контроля задач`);
-            }
+            if (task) addChange(`Задача "${task.title}" удалена из Контроля задач`);
             data.tasks = data.tasks.filter(t => t.id !== taskId);
             Object.keys(data.taskStatus).forEach(key => {
                 if (key.startsWith(taskId + '_')) delete data.taskStatus[key];
@@ -1685,13 +1551,7 @@
             if (!title) { alert('Название обязательно'); return; }
             const data = getControlTasksData();
             const newId = 't' + Date.now();
-            data.tasks.push({
-                id: newId,
-                title: title,
-                description: description,
-                deadline: deadline,
-                type: 'Контроль задач'
-            });
+            data.tasks.push({ id: newId, title, description, deadline, type: 'Контроль задач' });
             for (let d = 1; d <= DEPARTMENTS; d++) {
                 const key = newId + '_' + d;
                 data.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
@@ -1704,13 +1564,10 @@
         }
 
         // ====================================================================
-        // 10. СОХРАНЕНИЕ ИЗМЕНЕНИЙ И ВЫХОД
+        // 10. СОХРАНЕНИЕ И ВЫХОД
         // ====================================================================
         function saveChanges() {
-            if (!hasUnsavedChanges) {
-                alert('Нет несохранённых изменений.');
-                return;
-            }
+            if (!hasUnsavedChanges) { alert('Нет несохранённых изменений.'); return; }
             const modal = document.getElementById('modal');
             const content = document.getElementById('modalContent');
             let changesHtml = changeLog.map(item => `<div class="change-item">• ${item}</div>`).join('');
@@ -1734,13 +1591,9 @@
         function logoutAdmin() {
             if (hasUnsavedChanges) {
                 if (confirm('Есть несохранённые изменения. При выходе они будут потеряны. Всё равно выйти?')) {
-                    hasUnsavedChanges = false;
-                    changeLog = [];
-                    doLogout();
+                    hasUnsavedChanges = false; changeLog = []; doLogout();
                 }
-            } else {
-                doLogout();
-            }
+            } else doLogout();
         }
 
         function doLogout() {
@@ -1752,8 +1605,7 @@
             document.getElementById('adminPanel').style.display = 'none';
             document.getElementById('statsTabBtn').style.display = 'none';
             document.getElementById('editorTabBtn').style.display = 'none';
-            hasUnsavedChanges = false;
-            changeLog = [];
+            hasUnsavedChanges = false; changeLog = [];
             const activeTab = document.querySelector('.tab-content.active');
             if (activeTab) {
                 const tabId = activeTab.id;
@@ -1775,11 +1627,7 @@
             if (btn) btn.classList.add('active');
 
             const filterPanel = document.getElementById('filterPanel');
-            if (tabId === 'tab1') {
-                filterPanel.style.display = 'flex';
-            } else {
-                filterPanel.style.display = 'none';
-            }
+            filterPanel.style.display = (tabId === 'tab1') ? 'flex' : 'none';
 
             if (tabId === 'tab1') buildTab1();
             else if (tabId === 'tab2') buildTab2();
@@ -1799,18 +1647,15 @@
                 loadAppData();
             } catch (error) {
                 console.error('Ошибка анонимного входа:', error);
-                // Всё равно пытаемся загрузить данные (если политики RLS разрешают)
                 loadAppData();
             }
         }
 
         function init() {
             loadState();
-
             document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const tabId = this.dataset.tab;
-                    switchTab(tabId);
+                    switchTab(this.dataset.tab);
                 });
             });
 
@@ -1822,25 +1667,16 @@
                         document.getElementById('todayBtn').textContent = 'Сегодня';
                     }
                     updateFilterFromUI();
-                    if (document.getElementById('tab1').classList.contains('active')) {
-                        buildTab1();
-                    }
+                    if (document.getElementById('tab1').classList.contains('active')) buildTab1();
                 });
             });
 
             document.getElementById('todayBtn').addEventListener('click', function() {
                 showTodayOnly = !showTodayOnly;
-                if (showTodayOnly) {
-                    this.classList.add('active');
-                    this.textContent = 'Сегодня (вкл)';
-                } else {
-                    this.classList.remove('active');
-                    this.textContent = 'Сегодня';
-                }
+                if (showTodayOnly) { this.classList.add('active'); this.textContent = 'Сегодня (вкл)'; }
+                else { this.classList.remove('active'); this.textContent = 'Сегодня'; }
                 saveFilter();
-                if (document.getElementById('tab1').classList.contains('active')) {
-                    buildTab1();
-                }
+                if (document.getElementById('tab1').classList.contains('active')) buildTab1();
             });
 
             document.getElementById('resetFiltersBtn').addEventListener('click', function() {
@@ -1852,39 +1688,26 @@
                 document.getElementById('todayBtn').classList.remove('active');
                 document.getElementById('todayBtn').textContent = 'Сегодня';
                 saveFilter();
-                if (document.getElementById('tab1').classList.contains('active')) {
-                    buildTab1();
-                }
+                if (document.getElementById('tab1').classList.contains('active')) buildTab1();
             });
 
             document.getElementById('adminBtn').addEventListener('click', function() {
-                if (isAdmin) {
-                    logoutAdmin();
-                } else {
-                    openAdminModal();
-                }
+                if (isAdmin) logoutAdmin();
+                else openAdminModal();
             });
 
             document.getElementById('modal').addEventListener('click', function(e) {
                 if (e.target === this) closeModal();
             });
 
-            if (appData) {
-                switchTab('tab1');
-            }
+            if (appData) switchTab('tab1');
         }
 
         function updateFilterFromUI() {
-            const monthCbs = document.querySelectorAll('.month-filter');
             selectedMonths = [];
-            monthCbs.forEach(cb => {
-                if (cb.checked) selectedMonths.push(parseInt(cb.value));
-            });
-            const dayCbs = document.querySelectorAll('.day-filter');
+            document.querySelectorAll('.month-filter').forEach(cb => { if (cb.checked) selectedMonths.push(parseInt(cb.value)); });
             selectedDays = [];
-            dayCbs.forEach(cb => {
-                if (cb.checked) selectedDays.push(parseInt(cb.value));
-            });
+            document.querySelectorAll('.day-filter').forEach(cb => { if (cb.checked) selectedDays.push(parseInt(cb.value)); });
             saveFilter();
         }
 
@@ -1933,9 +1756,7 @@
                     else if (tabId === 'tab3') buildTab3();
                     else if (tabId === 'tab4') buildTab4();
                 }
-            } else {
-                alert('Неверный логин или пароль');
-            }
+            } else alert('Неверный логин или пароль');
         }
 
         function closeModal() {
@@ -1959,7 +1780,8 @@
                     appData = {
                         dailyTasks: JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS)),
                         dailyNotes: {},
-                        controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS))
+                        controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS)),
+                        checkboxStates: {}
                     };
                     init();
                 }
