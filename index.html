@@ -1,1792 +1,1702 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ежедневный Самоконтроль</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .filter-panel { background: #fff; padding: 10px 15px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
-        .filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-        .filter-group label { font-weight: bold; margin-right: 5px; font-size: 14px; }
-        .filter-group label input { margin-right: 3px; }
-        .filter-today { background: #007bff; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
-        .filter-today.active { background: #28a745; }
-        .reset-filter-btn { background: #ffc107; color: #000; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
-        .reset-filter-btn:hover { background: #e0a800; }
-        .admin-panel { display: none; background: #f8f9fa; padding: 8px 15px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #ccc; align-items: center; gap: 20px; flex-wrap: wrap; }
-        .admin-panel.visible { display: flex; }
-        .reset-btn { background: #dc3545; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; }
-        .reset-btn:hover { background: #c82333; }
-        .admin-panel .btn-success { background: #28a745; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; }
-        .admin-panel .btn-success:hover { background: #218838; }
-        .admin-panel .btn-primary { background: #007bff; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; }
-        .admin-panel .btn-primary:hover { background: #0069d9; }
-        .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-        .modal.visible { display: flex; }
-        .modal-content { background: #fff; padding: 20px; border-radius: 8px; min-width: 350px; max-width: 600px; text-align: center; max-height: 80vh; overflow-y: auto; }
-        .modal-content input, .modal-content textarea { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; }
-        .modal-content textarea { min-height: 80px; }
-        .modal-content button { padding: 6px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
-        .modal-content .btn-ok { background: #007bff; color: #fff; }
-        .modal-content .btn-cancel { background: #6c757d; color: #fff; }
-        .modal-content .btn-danger { background: #dc3545; color: #fff; }
-        .modal-content .change-item { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; font-size: 13px; }
-        .tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; }
-        .tab-btn { padding: 6px 12px; background: #e0e0e0; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
-        .tab-btn.active { background: #007bff; color: #fff; }
-        .tab-content { display: none; background: #fff; padding: 8px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); overflow-x: auto; }
-        .tab-content.active { display: block; }
-        table { border-collapse: collapse; font-size: 11px; white-space: nowrap; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 2px 4px; text-align: center; vertical-align: middle; }
-        th { background: #f0f0f0; position: sticky; top: 0; z-index: 10; }
-        .month-header { background: #d9edf7; font-weight: bold; border-bottom: 3px solid #333 !important; }
-        .month-end { border-right: 3px solid #333 !important; }
-        .week-start { border-left: 2px solid #666 !important; }
-        .day-end { border-bottom: 3px solid #333 !important; }
-        .day-header, .task-name { text-align: left; padding-left: 8px; min-width: 200px; max-width: 400px; white-space: normal; word-break: break-word; }
-        .day-header { font-weight: bold; }
-        .day-1 { background-color: #e3f2fd; }
-        .day-2 { background-color: #e8f5e9; }
-        .day-3 { background-color: #fff3e0; }
-        .day-4 { background-color: #fce4ec; }
-        .day-5 { background-color: #f3e5f5; }
-        .checkbox-cell { text-align: center; transition: background-color 0.2s; }
-        .checkbox-cell.done-on-time { background-color: #a3d9a5 !important; }
-        .checkbox-cell.done-late { background-color: #ffec8b !important; }
-        .checkbox-cell.missed { background-color: #f9f9f9 !important; }
-        input[type="checkbox"] { cursor: pointer; width: 14px; height: 14px; accent-color: darkgreen; margin: 0; }
-        input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.7; }
-        .cross-mark { color: red; font-size: 16px; font-weight: bold; }
-        .empty-cell { background: #f9f9f9; }
-        .task-desc { cursor: pointer; color: #007bff; text-decoration: underline; }
-        .task-desc:hover { color: #0056b3; }
-        .blocked-cell { background-color: #d3d3d3 !important; }
-        .done-cell { background-color: #28a745 !important; color: #fff; cursor: pointer; }
-        .done-cell:hover { opacity: 0.8; }
-        .overdue-cell { background-color: #dc3545 !important; color: #fff; }
-        .task-title-cell { min-width: 200px; max-width: 350px; white-space: normal; word-break: break-word; text-align: left; padding: 4px 6px; }
-        .task-editor { display: flex; flex-direction: column; gap: 15px; }
-        .task-editor .day-block { border: 1px solid #ccc; border-radius: 4px; padding: 10px; background: #fafafa; }
-        .task-editor .day-block h4 { margin: 0 0 8px 0; background: #e9ecef; padding: 4px 8px; border-radius: 4px; }
-        .task-editor .task-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .task-editor .task-item input[type="text"] { flex: 1; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; }
-        .task-editor .task-item button { background: #dc3545; color: #fff; border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
-        .task-editor .add-task-form { display: flex; gap: 8px; margin-top: 6px; }
-        .task-editor .add-task-form input[type="text"] { flex: 1; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; }
-        .task-editor .add-task-form button { background: #28a745; color: #fff; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; }
-        .task-note-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #007bff; margin-left: 5px; }
-        .task-note-btn:hover { color: #0056b3; }
-        .task-info-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #17a2b8; margin-left: 3px; }
-        .task-info-btn:hover { color: #0f7a8a; }
-        .footer { margin-top: 20px; font-size: 12px; color: #666; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
-        .footer .admin-btn { background: #6c757d; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        .footer .admin-btn.active { background: #28a745; }
-        .no-data { padding: 20px; text-align: center; font-size: 16px; color: #888; }
-        .stats-table td, .stats-table th { padding: 4px 8px; font-size: 12px; }
-        .stats-filter { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
-        .stats-filter select, .stats-filter input { padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ежедневный Самоконтроль</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; }
+body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+.filter-panel { background: #fff; padding: 10px 15px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+.filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.filter-group label { font-weight: bold; margin-right: 5px; font-size: 14px; }
+.filter-group label input { margin-right: 3px; }
+.filter-today { background: #007bff; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+.filter-today.active { background: #28a745; }
+.reset-filter-btn { background: #ffc107; color: #000; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+.reset-filter-btn:hover { background: #e0a800; }
+.admin-panel { display: none; background: #f8f9fa; padding: 8px 15px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #ccc; align-items: center; gap: 10px; flex-wrap: wrap; }
+.admin-panel.visible { display: flex; }
+.admin-panel button { padding: 4px 12px; border-radius: 4px; cursor: pointer; border: none; color: #fff; font-weight: bold; font-size: 13px; }
+.admin-panel .btn-success { background: #28a745; }
+.admin-panel .btn-primary { background: #007bff; }
+.admin-panel .btn-warning { background: #ffc107; color: #000; }
+.admin-panel .btn-info { background: #17a2b8; }
+.admin-panel .reset-btn { background: #6c757d; }
+.modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+.modal.visible { display: flex; }
+.modal-content { background: #fff; padding: 20px; border-radius: 8px; min-width: 350px; max-width: 700px; text-align: center; max-height: 85vh; overflow-y: auto; }
+.modal-content input, .modal-content textarea { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; }
+.modal-content textarea { min-height: 60px; font-family: inherit; }
+.modal-content button { padding: 6px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+.modal-content .btn-ok { background: #007bff; color: #fff; }
+.modal-content .btn-cancel { background: #6c757d; color: #fff; }
+.modal-content .btn-danger { background: #dc3545; color: #fff; }
+.modal-content .change-item { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; font-size: 13px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; }
+.tab-btn { padding: 6px 12px; background: #e0e0e0; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.tab-btn.active { background: #007bff; color: #fff; }
+.tab-content { display: none; background: #fff; padding: 8px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); overflow-x: auto; }
+.tab-content.active { display: block; }
+table { border-collapse: collapse; font-size: 11px; white-space: nowrap; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 2px 4px; text-align: center; vertical-align: middle; }
+th { background: #f0f0f0; position: sticky; top: 0; z-index: 10; }
+.month-header { background: #d9edf7; font-weight: bold; border-bottom: 3px solid #333 !important; }
+.month-end { border-right: 3px solid #333 !important; }
+.week-start { border-left: 2px solid #666 !important; }
+.day-end { border-bottom: 3px solid #333 !important; }
+.day-header, .task-name { text-align: left; padding-left: 8px; min-width: 200px; max-width: 400px; white-space: normal; word-break: break-word; }
+.day-header { font-weight: bold; }
+.day-1 { background-color: #e3f2fd; }
+.day-2 { background-color: #e8f5e9; }
+.day-3 { background-color: #fff3e0; }
+.day-4 { background-color: #fce4ec; }
+.day-5 { background-color: #f3e5f5; }
+.checkbox-cell { text-align: center; transition: background-color 0.2s; }
+.checkbox-cell.done-on-time { background-color: #a3d9a5 !important; }
+.checkbox-cell.done-late { background-color: #ffec8b !important; }
+.checkbox-cell.missed { background-color: #f9f9f9 !important; }
+input[type="checkbox"] { cursor: pointer; width: 14px; height: 14px; accent-color: darkgreen; margin: 0; }
+input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.7; }
+.cross-mark { color: red; font-size: 16px; font-weight: bold; }
+.empty-cell { background: #f9f9f9; }
+.task-desc { cursor: pointer; color: #007bff; text-decoration: underline; }
+.task-desc:hover { color: #0056b3; }
+.blocked-cell { background-color: #d3d3d3 !important; }
+.done-cell { background-color: #28a745 !important; color: #fff; cursor: pointer; }
+.done-cell:hover { opacity: 0.8; }
+.overdue-cell { background-color: #dc3545 !important; color: #fff; }
+.task-title-cell { min-width: 200px; max-width: 350px; white-space: normal; word-break: break-word; text-align: left; padding: 4px 6px; }
+.task-note-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #007bff; margin-left: 5px; padding: 0; }
+.task-note-btn:hover { color: #0056b3; }
+.task-info-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #17a2b8; margin-left: 3px; padding: 0; }
+.task-info-btn:hover { color: #0f7a8a; }
+.task-del-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #dc3545; margin-left: 3px; padding: 0; }
+.task-del-btn:hover { color: #a01828; }
+.footer { margin-top: 20px; font-size: 12px; color: #666; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
+.footer .admin-btn { background: #6c757d; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+.footer .admin-btn.active { background: #28a745; }
+.no-data { padding: 20px; text-align: center; font-size: 16px; color: #888; }
+.stats-table td, .stats-table th { padding: 4px 8px; font-size: 12px; }
+.stats-filter { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+.stats-filter select, .stats-filter input { padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; }
+
+/* Sticky first column for tab2 */
+#tab2 table th.sticky-col,
+#tab2 table td.sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: #f0f0f0;
+}
+#tab2 table th.sticky-col { z-index: 25; }
+#tab2 table td.sticky-col { background: #fafafa; font-weight: bold; text-align: left; padding-left: 8px; }
+
+/* Common tasks editor */
+.common-tasks-table th, .common-tasks-table td { padding: 6px 8px; font-size: 13px; text-align: left; }
+.common-tasks-table textarea { width: 100%; min-height: 40px; font-size: 13px; padding: 4px 6px; }
+.common-tasks-table input[type="text"] { width: 100%; padding: 4px 6px; font-size: 13px; }
+</style>
 </head>
 <body>
-    <h1>Ежедневный Самоконтроль</h1>
-
-    <div class="filter-panel" id="filterPanel">
-        <div class="filter-group" id="monthFilterGroup">
-            <label>Месяцы:</label>
-            <label><input type="checkbox" class="month-filter" value="0" checked> Август</label>
-            <label><input type="checkbox" class="month-filter" value="1" checked> Сентябрь</label>
-            <label><input type="checkbox" class="month-filter" value="2" checked> Октябрь</label>
-            <label><input type="checkbox" class="month-filter" value="3" checked> Ноябрь</label>
-            <label><input type="checkbox" class="month-filter" value="4" checked> Декабрь</label>
-        </div>
-        <div class="filter-group" id="dayFilterGroup">
-            <label>Дни недели:</label>
-            <label><input type="checkbox" class="day-filter" value="1" checked> ПН</label>
-            <label><input type="checkbox" class="day-filter" value="2" checked> ВТ</label>
-            <label><input type="checkbox" class="day-filter" value="3" checked> СР</label>
-            <label><input type="checkbox" class="day-filter" value="4" checked> ЧТ</label>
-            <label><input type="checkbox" class="day-filter" value="5" checked> ПТ</label>
-        </div>
-        <div class="filter-group">
-            <button id="todayBtn" class="filter-today">Сегодня</button>
-            <button id="resetFiltersBtn" class="reset-filter-btn">Сброс фильтра</button>
-        </div>
-    </div>
-
-    <div id="adminPanel" class="admin-panel" style="display:none;">
-        <span>Режим администратора активен.</span>
-        <button class="btn-success" onclick="addTask()">➕ Добавить задачу (Контроль задач)</button>
-        <button class="btn-primary" onclick="saveChanges()">💾 Сохранить изменения</button>
-        <button class="reset-btn" style="background:#6c757d;" onclick="logoutAdmin()">Выйти</button>
-    </div>
-
-    <div id="modal" class="modal">
-        <div class="modal-content" id="modalContent"></div>
-    </div>
-
-    <div class="tabs" id="tabsContainer">
-        <button class="tab-btn active" data-tab="tab1">Ежедневный Самоконтроль</button>
-        <button class="tab-btn" data-tab="tab2">Контроль задач</button>
-        <button class="tab-btn" data-tab="tab4" id="editorTabBtn" style="display:none;">Редактор задач</button>
-        <button class="tab-btn" data-tab="tab3" id="statsTabBtn" style="display:none;">Статистика</button>
-    </div>
-
-    <div id="contentContainer">
-        <div id="tab1" class="tab-content active"></div>
-        <div id="tab2" class="tab-content"></div>
-        <div id="tab3" class="tab-content"></div>
-        <div id="tab4" class="tab-content"></div>
-    </div>
-
-    <div class="footer">
-        <span>Данные синхронизируются в реальном времени.</span>
-        <button id="adminBtn" class="admin-btn">Админ</button>
-    </div>
-
-    <script>
-        // ====================================================================
-        // 1. ПОДКЛЮЧЕНИЕ SUPABASE
-        // ====================================================================
-        const SUPABASE_URL = 'https://pqfswgavkhotvtdcfbcm.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_eB_viieych0bhJapY0tL_g_9y5zJ9DQ';
-
-        const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        let currentUserId = null;
-        let appData = null;
-        let subscription = null;
-
-        const DEFAULT_DAILY_TASKS = {
-            1: [
-                'История изменения ТОПов пополнения', 'УТО', 'Best Next',
-                'Проработка резервов по Алмазу', 'Проработка maxов',
-                'Анализ доступности на(%присутствия) проект', 'Анализ новинок',
-                'Лидерский подход-присутствие ЛЦ,СТМ,Импорт,НК',
-                'Аналитика отчета на предмет добора до франко,минимумы на тс, влияние През.рез. на мс тс',
-                'Проработка каждой ссылки на твоем сайте'
-            ],
-            2: [
-                'История изменения ТОПов пополнения', 'УТО', 'Best Next',
-                'Отработка потенциального УТО', 'Проработка основных причин сплитования артикулов',
-                'Проработка МС, ТС на предмет трансферов',
-                'Проработка на предмет потенциального возврата поставщику',
-                'Подготовка слайдов по направлению к презентации',
-                'Проработка каждой ссылки на твоем сайте'
-            ],
-            3: [
-                'История изменения ТОПов пополнения', 'УТО', 'Best Next',
-                'Анализ артикулов, у которых ожидается изменение объема продаж относительно сезонности',
-                'Обход отделов (коммуникации с МЭС)', 'Заполнение динамики показателей',
-                'Проработать отчет по заказам с задержкой поставки',
-                'Проработка каждой ссылки на твоем сайте'
-            ],
-            4: [
-                'История изменения ТОПов пополнения', 'УТО', 'Best Next',
-                'Отчет по возврату товара поставщику ( раб лист и утвержденные более 3х недель)',
-                'Проработка топ0 на предмет возврата поставщику',
-                'Проработка каждой ссылки на твоем сайте'
-            ],
-            5: [
-                'История изменения ТОПов пополнения', 'УТО', 'Best Next',
-                'Комментарии по низким рангам УТО', 'Анализ минимумов запаса',
-                'Отработка потенциального УТО', 'Проработка МС, ТС на предмет трансферов',
-                'Анализ скидок по поставщикам', 'Запас по артикулам ТОП25-100',
-                'Проработка статистики коррекций Алмаза', 'Анализ товара без прогноза',
-                'Проработка каждой ссылки на твоем сайте'
-            ]
-        };
-
-        const DEFAULT_CONTROL_TASKS = {
-            tasks: [
-                { id: 't1', title: 'Согласовать бюджет', description: 'Согласовать бюджет с финансовым отделом до 15 числа', deadline: '2026-09-15', type: 'Контроль задач' },
-                { id: 't2', title: 'Подготовить отчёт', description: 'Подготовить ежемесячный отчёт по продажам', deadline: '2026-09-20', type: 'Контроль задач' },
-                { id: 't3', title: 'Провести встречу', description: 'Провести встречу с командой по проекту', deadline: '2026-09-25', type: 'Контроль задач' }
-            ],
-            taskStatus: {},
-            logs: []
-        };
-        DEFAULT_CONTROL_TASKS.tasks.forEach(t => {
-            for (let d = 1; d <= 15; d++) {
-                const key = t.id + '_' + d;
-                DEFAULT_CONTROL_TASKS.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
-            }
-        });
-
-        // ====================================================================
-        // 2. ЗАГРУЗКА ДАННЫХ ИЗ SUPABASE
-        // ====================================================================
-        async function loadAppData() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('app_data')
-                    .select('data')
-                    .eq('id', 'main')
-                    .single();
-
-                if (error) {
-                    if (error.code === 'PGRST116') {
-                        const initialData = {
-                            dailyTasks: JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS)),
-                            dailyNotes: {},
-                            controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS)),
-                            checkboxStates: {}
-                        };
-                        await supabaseClient.from('app_data').insert([{ id: 'main', data: initialData }]);
-                        appData = initialData;
-                    } else {
-                        console.error('Ошибка загрузки:', error);
-                        return;
-                    }
-                } else {
-                    appData = data.data;
-                }
-
-                setupRealtimeSubscription();
-                onDataLoaded();
-            } catch (e) {
-                console.error('Ошибка:', e);
-            }
-        }
-
-        function setupRealtimeSubscription() {
-            if (subscription) {
-                subscription.unsubscribe();
-                subscription = null;
-            }
-            subscription = supabaseClient
-                .channel('app_data_changes')
-                .on(
-                    'postgres_changes',
-                    { event: 'UPDATE', schema: 'public', table: 'app_data', filter: 'id=eq.main' },
-                    (payload) => {
-                        appData = payload.new.data;
-                        onDataLoaded();
-                    }
-                )
-                .subscribe();
-        }
-
-        function onDataLoaded() {
-            if (!appData) return;
-            if (!appData.dailyTasks) appData.dailyTasks = JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS));
-            if (!appData.dailyNotes) appData.dailyNotes = {};
-            if (!appData.controlTasks) appData.controlTasks = JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS));
-            if (!appData.controlTasks.logs) appData.controlTasks.logs = [];
-            if (!appData.controlTasks.taskStatus) appData.controlTasks.taskStatus = {};
-            if (!appData.checkboxStates) appData.checkboxStates = {};
-
-            const activeTab = document.querySelector('.tab-content.active');
-            if (activeTab) {
-                const tabId = activeTab.id;
-                if (tabId === 'tab1') buildTab1();
-                else if (tabId === 'tab2') buildTab2();
-                else if (tabId === 'tab3') buildTab3();
-                else if (tabId === 'tab4') buildTab4();
-            } else {
-                switchTab('tab1');
-            }
-        }
-
-        // ====================================================================
-        // 3. СОХРАНЕНИЕ ДАННЫХ
-        // ====================================================================
-        async function saveAppData() {
-            if (!appData) return;
-            try {
-                const { error } = await supabaseClient
-                    .from('app_data')
-                    .update({ data: appData })
-                    .eq('id', 'main');
-                if (error) console.error('Ошибка сохранения:', error);
-            } catch (e) {
-                console.error('Ошибка сохранения:', e);
-            }
-        }
-
-        function getDailyTasks() {
-            return appData ? appData.dailyTasks : JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS));
-        }
-        function saveDailyTasks(tasks) {
-            if (!appData) return;
-            appData.dailyTasks = tasks;
-            saveAppData();
-        }
-        function getDailyTaskNotes() {
-            return appData ? appData.dailyNotes : {};
-        }
-        function saveDailyTaskNotes(notes) {
-            if (!appData) return;
-            appData.dailyNotes = notes;
-            saveAppData();
-        }
-        function getControlTasksData() {
-            if (!appData) return { tasks: [], taskStatus: {}, logs: [] };
-            return appData.controlTasks;
-        }
-        function saveControlTasksData(data) {
-            if (!appData) return;
-            appData.controlTasks = data;
-            saveAppData();
-        }
-
-        function addLog(taskId, depId, action, taskType, comment) {
-            if (!appData) return;
-            const now = new Date();
-            const timestamp = now.toISOString();
-            const date = now.toLocaleDateString('ru-RU');
-            const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const logEntry = {
-                taskId, depId, action, timestamp,
-                date: date + ' ' + time,
-                userType: isAdmin ? 'admin' : 'user',
-                taskType: taskType || 'Контроль задач',
-                comment: comment || '',
-                userId: currentUserId || 'anonymous'
-            };
-            if (!appData.controlTasks.logs) appData.controlTasks.logs = [];
-            appData.controlTasks.logs.push(logEntry);
-            saveAppData();
-        }
-
-        // ====================================================================
-        // 4. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ====================================================================
-        const YEAR = 2026;
-        const MONTHS = ['Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-        const MONTH_INDEXES = [7, 8, 9, 10, 11];
-        const DEPARTMENTS = 15;
-
-        let selectedMonths = [0,1,2,3,4];
-        let selectedDays = [1,2,3,4,5];
-        let showTodayOnly = false;
-        let isAdmin = false;
-        let hasUnsavedChanges = false;
-        let changeLog = [];
-
-        function addChange(description) {
-            if (isAdmin) { changeLog.push(description); hasUnsavedChanges = true; }
-        }
-
-        function loadState() {
-            const savedMonths = localStorage.getItem('filter_months');
-            if (savedMonths) { try { selectedMonths = JSON.parse(savedMonths); } catch(e) {} }
-            const savedDays = localStorage.getItem('filter_days');
-            if (savedDays) { try { selectedDays = JSON.parse(savedDays); } catch(e) {} }
-            const savedToday = localStorage.getItem('filter_today');
-            if (savedToday === 'true') showTodayOnly = true;
-            const savedAdmin = localStorage.getItem('isAdmin');
-            if (savedAdmin === 'true') isAdmin = true;
-
-            document.querySelectorAll('.month-filter').forEach(cb => {
-                cb.checked = selectedMonths.includes(parseInt(cb.value));
-            });
-            document.querySelectorAll('.day-filter').forEach(cb => {
-                cb.checked = selectedDays.includes(parseInt(cb.value));
-            });
-            const todayBtn = document.getElementById('todayBtn');
-            if (showTodayOnly) { todayBtn.classList.add('active'); todayBtn.textContent = 'Сегодня (вкл)'; }
-            else { todayBtn.classList.remove('active'); todayBtn.textContent = 'Сегодня'; }
-            const adminBtn = document.getElementById('adminBtn');
-            if (isAdmin) {
-                adminBtn.classList.add('active');
-                adminBtn.textContent = 'Админ (вкл)';
-                document.getElementById('adminPanel').style.display = 'flex';
-                document.getElementById('statsTabBtn').style.display = 'inline-block';
-                document.getElementById('editorTabBtn').style.display = 'inline-block';
-            } else {
-                adminBtn.classList.remove('active');
-                adminBtn.textContent = 'Админ';
-                document.getElementById('adminPanel').style.display = 'none';
-                document.getElementById('statsTabBtn').style.display = 'none';
-                document.getElementById('editorTabBtn').style.display = 'none';
-            }
-            if (!isAdmin) { hasUnsavedChanges = false; changeLog = []; }
-        }
-
-        function saveFilter() {
-            localStorage.setItem('filter_months', JSON.stringify(selectedMonths));
-            localStorage.setItem('filter_days', JSON.stringify(selectedDays));
-            localStorage.setItem('filter_today', showTodayOnly ? 'true' : 'false');
-            localStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
-        }
-
-        function getDatesForDay(monthIndex, dayOfWeek) {
-            const dates = [];
-            const date = new Date(YEAR, monthIndex, 1);
-            const firstDay = date.getDay();
-            let diff = dayOfWeek - firstDay;
-            if (diff < 0) diff += 7;
-            date.setDate(date.getDate() + diff);
-            while (date.getMonth() === monthIndex) {
-                dates.push(date.getDate());
-                date.setDate(date.getDate() + 7);
-            }
-            return dates;
-        }
-
-        function getWeeksForMonth(monthIndex) {
-            const weeks = [];
-            let firstDate = new Date(YEAR, monthIndex, 1);
-            let dayOfWeek = firstDate.getDay();
-            firstDate.setDate(firstDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-            let current = new Date(firstDate);
-            while (current.getMonth() <= monthIndex && current.getFullYear() === YEAR) {
-                const week = [];
-                let hasDayInMonth = false;
-                for (let d = 0; d < 5; d++) {
-                    const dateObj = new Date(current);
-                    dateObj.setDate(dateObj.getDate() + d);
-                    week.push({ dayOfWeek: d + 1, monthIndex: dateObj.getMonth(), date: dateObj.getDate() });
-                    if (dateObj.getMonth() === monthIndex) hasDayInMonth = true;
-                }
-                if (hasDayInMonth) weeks.push(week);
-                current.setDate(current.getDate() + 7);
-                if (current.getMonth() > monthIndex) break;
-            }
-            return weeks;
-        }
-
-        function isDayPassedByDate(dateObj) {
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const planned = new Date(YEAR, dateObj.monthIndex, dateObj.date);
-            return today > planned;
-        }
-
-        function formatDate(monthIndex, day) {
-            const d = new Date(YEAR, monthIndex, day);
-            return d.toISOString().slice(0, 10);
-        }
-
-        // ====================================================================
-        // 5. ВКЛАДКА 1 - ЕЖЕДНЕВНЫЙ САМОКОНТРОЛЬ
-        // ====================================================================
-        const DEPT_TABS = [
-            { id: '1_КРД', label: '1 отдел Вика' },
-            { id: '1_НВР_ВЛД', label: '1 отдел Артем' },
-            { id: '2', label: '2 отдел' },
-            { id: '3', label: '3 отдел' },
-            { id: '4', label: '4 отдел' },
-            { id: '5', label: '5 отдел' },
-            { id: '6', label: '6 отдел' },
-            { id: '7', label: '7 отдел' },
-            { id: '8', label: '8 отдел' },
-            { id: '9_Денис', label: '9 отдел Денис' },
-            { id: '9_Катя', label: '9 отдел Катя' },
-            { id: '9_Дима', label: '9 отдел Дима' },
-            { id: '10', label: '10 отдел' },
-            { id: '11', label: '11 отдел' },
-            { id: '12_Вика', label: '12 отдел Вика' },
-            { id: '12_Аня', label: '12 отдел Аня' },
-            { id: '13', label: '13 отдел' },
-            { id: '14', label: '14 отдел' },
-            { id: '15', label: '15 отдел' }
-        ];
-
-        let currentDeptTab1 = '1_КРД';
-
-        function buildTab1() {
-            const container = document.getElementById('tab1');
-            container.innerHTML = '';
-
-            let html = '<div class="tabs" style="margin-bottom:10px;">';
-            DEPT_TABS.forEach(t => {
-                const active = t.id === currentDeptTab1 ? 'active' : '';
-                html += `<button class="tab-btn ${active}" data-dept="${t.id}">${t.label}</button>`;
-            });
-            html += '</div>';
-            container.innerHTML = html;
-
-            container.querySelectorAll('.tab-btn[data-dept]').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    currentDeptTab1 = this.dataset.dept;
-                    buildTab1();
-                });
-            });
-
-            const tableContainer = document.createElement('div');
-            tableContainer.id = 'tab1TableContainer';
-            container.appendChild(tableContainer);
-
-            const table = buildTableForDept(currentDeptTab1);
-            tableContainer.appendChild(table);
-        }
-
-        function buildTableForDept(departmentId) {
-            const container = document.createElement('div');
-            const tasksByDay = getDailyTasks();
-            const notes = getDailyTaskNotes();
-
-            if (showTodayOnly) return buildTodayTable(departmentId, tasksByDay, notes);
-
-            const displayMonths = MONTH_INDEXES.filter((_, idx) => selectedMonths.includes(idx));
-            if (displayMonths.length === 0) {
-                const div = document.createElement('div');
-                div.className = 'no-data';
-                div.textContent = 'Выберите хотя бы один месяц';
-                return div;
-            }
-
-            const monthWeeks = displayMonths.map(mIdx => ({
-                monthIndex: mIdx,
-                monthName: MONTHS[MONTH_INDEXES.indexOf(mIdx)],
-                weeks: getWeeksForMonth(mIdx)
-            }));
-
-            const activeDays = selectedDays.sort();
-
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-
-            const monthRow = document.createElement('tr');
-            const emptyHead = document.createElement('th');
-            emptyHead.textContent = '';
-            monthRow.appendChild(emptyHead);
-            monthWeeks.forEach((mw) => {
-                const th = document.createElement('th');
-                th.textContent = mw.monthName;
-                th.colSpan = mw.weeks.length;
-                th.className = 'month-header';
-                monthRow.appendChild(th);
-            });
-            thead.appendChild(monthRow);
-
-            activeDays.forEach(dow => {
-                const dayRow = document.createElement('tr');
-                const dayNameCell = document.createElement('td');
-                const dayNames = ['', 'ПОНЕДЕЛЬНИК', 'ВТОРНИК', 'СРЕДА', 'ЧЕТВЕРГ', 'ПЯТНИЦА'];
-                dayNameCell.textContent = dayNames[dow];
-                dayNameCell.className = `day-header day-${dow}`;
-                dayRow.appendChild(dayNameCell);
-
-                monthWeeks.forEach((mw) => {
-                    mw.weeks.forEach((week, wi) => {
-                        const td = document.createElement('td');
-                        const dayData = week.find(w => w.dayOfWeek === dow);
-                        if (dayData) {
-                            td.textContent = dayData.date;
-                            td.style.fontWeight = 'bold';
-                            td.className = `day-${dow}`;
-                            if (wi === 0) td.classList.add('week-start');
-                        } else {
-                            td.textContent = '';
-                            td.className = 'empty-cell';
-                        }
-                        if (wi === mw.weeks.length - 1) td.classList.add('month-end');
-                        dayRow.appendChild(td);
-                    });
-                });
-                tbody.appendChild(dayRow);
-
-                const tasks = tasksByDay[dow] || [];
-                tasks.forEach((task, taskIdx) => {
-                    const taskRow = document.createElement('tr');
-                    const taskNameCell = document.createElement('td');
-                    taskNameCell.className = `task-name day-${dow}`;
-                    const taskSpan = document.createElement('span');
-                    taskSpan.textContent = task;
-                    taskNameCell.appendChild(taskSpan);
-
-                    const infoBtn = document.createElement('button');
-                    infoBtn.textContent = 'ℹ️';
-                    infoBtn.className = 'task-info-btn';
-                    infoBtn.title = 'Посмотреть заметку';
-                    infoBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const key = `${dow}_${taskIdx}`;
-                        const note = notes[key] || 'Нет заметки';
-                        const modal = document.getElementById('modal');
-                        const content = document.getElementById('modalContent');
-                        content.innerHTML = `
-                            <h3>Заметка к задаче</h3>
-                            <p><strong>Задача:</strong> ${task}</p>
-                            <div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${note}</div>
-                            <button class="btn-cancel" onclick="closeModal()">Закрыть</button>
-                        `;
-                        modal.classList.add('visible');
-                    });
-                    taskNameCell.appendChild(infoBtn);
-
-                    if (isAdmin) {
-                        const editBtn = document.createElement('button');
-                        editBtn.textContent = '✎';
-                        editBtn.className = 'task-note-btn';
-                        editBtn.title = 'Редактировать заметку (только админ)';
-                        editBtn.addEventListener('click', function(e) {
-                            e.stopPropagation();
-                            const key = `${dow}_${taskIdx}`;
-                            const currentNote = notes[key] || '';
-                            const modal = document.getElementById('modal');
-                            const content = document.getElementById('modalContent');
-                            content.innerHTML = `
-                                <h3>Редактирование заметки</h3>
-                                <p><strong>Задача:</strong> ${task}</p>
-                                <textarea id="noteInput" rows="4" placeholder="Введите текст или ссылку...">${currentNote}</textarea>
-                                <button class="btn-ok" onclick="saveNote('${dow}', ${taskIdx})">Сохранить</button>
-                                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-                            `;
-                            modal.classList.add('visible');
-                            document.getElementById('noteInput').focus();
-                        });
-                        taskNameCell.appendChild(editBtn);
-                    }
-
-                    taskRow.appendChild(taskNameCell);
-
-                    monthWeeks.forEach((mw) => {
-                        mw.weeks.forEach((week, wi) => {
-                            const td = document.createElement('td');
-                            td.className = `checkbox-cell day-${dow}`;
-                            const dayData = week.find(w => w.dayOfWeek === dow);
-                            if (dayData) {
-                                const dateStr = formatDate(dayData.monthIndex, dayData.date);
-                                const cbId = `${departmentId}_${dow}_${taskIdx}_${dateStr}`;
-                                const isPassed = isDayPassedByDate(dayData);
-                                const cbState = appData.checkboxStates && appData.checkboxStates[cbId];
-                                const isChecked = cbState ? cbState.state === true : false;
-
-                                if (isPassed && !isChecked && !isAdmin) {
-                                    const span = document.createElement('span');
-                                    span.textContent = '✕';
-                                    span.className = 'cross-mark';
-                                    td.appendChild(span);
-                                    td.classList.add('missed');
-                                } else {
-                                    const cb = document.createElement('input');
-                                    cb.type = 'checkbox';
-                                    cb.id = cbId;
-                                    cb.checked = isChecked;
-                                    if (isPassed && !isAdmin) cb.disabled = true;
-                                    cb.addEventListener('change', function() {
-                                        const now = new Date().toISOString().slice(0, 10);
-                                        const checked = this.checked;
-                                        if (!appData.checkboxStates) appData.checkboxStates = {};
-                                        if (checked) {
-                                            appData.checkboxStates[this.id] = { state: true, date: now };
-                                            const depNum = parseInt(departmentId.split('_')[0]) || 1;
-                                            addLog('daily_' + dow + '_' + taskIdx, depNum, 'done', 'Ежедневный Самоконтроль', '');
-                                        } else {
-                                            appData.checkboxStates[this.id] = { state: false, date: null };
-                                            const depNum = parseInt(departmentId.split('_')[0]) || 1;
-                                            addLog('daily_' + dow + '_' + taskIdx, depNum, 'uncheck', 'Ежедневный Самоконтроль', '');
-                                        }
-                                        updateCellStyle(this);
-                                    });
-                                    td.appendChild(cb);
-                                    setTimeout(() => updateCellStyle(cb), 0);
-                                }
-                            } else {
-                                td.className = 'empty-cell';
-                                td.textContent = '';
-                            }
-                            if (wi === 0) td.classList.add('week-start');
-                            if (wi === mw.weeks.length - 1) td.classList.add('month-end');
-                            taskRow.appendChild(td);
-                        });
-                    });
-                    if (taskIdx === tasks.length - 1) taskRow.classList.add('day-end');
-                    tbody.appendChild(taskRow);
-                });
-            });
-
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            return table;
-        }
-
-        function buildTodayTable(departmentId, tasksByDay, notes) {
-            const container = document.createElement('div');
-            const today = new Date();
-            const todayMonth = today.getMonth();
-            const todayDate = today.getDate();
-            const todayDay = today.getDay();
-            if (todayDay === 0 || todayDay === 6 || !MONTH_INDEXES.includes(todayMonth)) {
-                const div = document.createElement('div');
-                div.className = 'no-data';
-                div.textContent = 'Нет данных для сегодня';
-                return div;
-            }
-            const cols = [];
-            const monthIdx = MONTH_INDEXES.indexOf(todayMonth);
-            const dates = getDatesForDay(todayMonth, todayDay);
-            dates.forEach(d => {
-                if (d === todayDate) {
-                    cols.push({ monthIndex: todayMonth, monthName: MONTHS[monthIdx], dayOfWeek: todayDay, date: d });
-                }
-            });
-            if (cols.length === 0) {
-                const div = document.createElement('div');
-                div.className = 'no-data';
-                div.textContent = 'Нет данных для сегодня';
-                return div;
-            }
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-
-            const monthRow = document.createElement('tr');
-            const emptyHead = document.createElement('th');
-            emptyHead.textContent = '';
-            monthRow.appendChild(emptyHead);
-            const th = document.createElement('th');
-            th.textContent = MONTHS[monthIdx];
-            th.colSpan = cols.length;
-            th.className = 'month-header';
-            monthRow.appendChild(th);
-            thead.appendChild(monthRow);
-
-            const dateRow = document.createElement('tr');
-            const dayNameCell = document.createElement('td');
-            const dayNames = ['', 'ПОНЕДЕЛЬНИК', 'ВТОРНИК', 'СРЕДА', 'ЧЕТВЕРГ', 'ПЯТНИЦА'];
-            dayNameCell.textContent = dayNames[todayDay];
-            dayNameCell.className = `day-header day-${todayDay}`;
-            dateRow.appendChild(dayNameCell);
-            cols.forEach(col => {
-                const td = document.createElement('td');
-                td.textContent = col.date;
-                td.style.fontWeight = 'bold';
-                td.className = `day-${todayDay}`;
-                dateRow.appendChild(td);
-            });
-            tbody.appendChild(dateRow);
-
-            const tasks = tasksByDay[todayDay] || [];
-            tasks.forEach((task, taskIdx) => {
-                const taskRow = document.createElement('tr');
-                const taskNameCell = document.createElement('td');
-                taskNameCell.className = `task-name day-${todayDay}`;
-                const taskSpan = document.createElement('span');
-                taskSpan.textContent = task;
-                taskNameCell.appendChild(taskSpan);
-
-                const infoBtn = document.createElement('button');
-                infoBtn.textContent = 'ℹ️';
-                infoBtn.className = 'task-info-btn';
-                infoBtn.title = 'Посмотреть заметку';
-                infoBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const key = `${todayDay}_${taskIdx}`;
-                    const note = notes[key] || 'Нет заметки';
-                    const modal = document.getElementById('modal');
-                    const content = document.getElementById('modalContent');
-                    content.innerHTML = `
-                        <h3>Заметка к задаче</h3>
-                        <p><strong>Задача:</strong> ${task}</p>
-                        <div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${note}</div>
-                        <button class="btn-cancel" onclick="closeModal()">Закрыть</button>
-                    `;
-                    modal.classList.add('visible');
-                });
-                taskNameCell.appendChild(infoBtn);
-
-                if (isAdmin) {
-                    const editBtn = document.createElement('button');
-                    editBtn.textContent = '✎';
-                    editBtn.className = 'task-note-btn';
-                    editBtn.title = 'Редактировать заметку (только админ)';
-                    editBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const key = `${todayDay}_${taskIdx}`;
-                        const currentNote = notes[key] || '';
-                        const modal = document.getElementById('modal');
-                        const content = document.getElementById('modalContent');
-                        content.innerHTML = `
-                            <h3>Редактирование заметки</h3>
-                            <p><strong>Задача:</strong> ${task}</p>
-                            <textarea id="noteInput" rows="4" placeholder="Введите текст или ссылку...">${currentNote}</textarea>
-                            <button class="btn-ok" onclick="saveNote('${todayDay}', ${taskIdx})">Сохранить</button>
-                            <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-                        `;
-                        modal.classList.add('visible');
-                        document.getElementById('noteInput').focus();
-                    });
-                    taskNameCell.appendChild(editBtn);
-                }
-
-                taskRow.appendChild(taskNameCell);
-
-                cols.forEach(col => {
-                    const td = document.createElement('td');
-                    td.className = `checkbox-cell day-${todayDay}`;
-                    const dateStr = formatDate(col.monthIndex, col.date);
-                    const cbId = `${departmentId}_${todayDay}_${taskIdx}_${dateStr}`;
-                    const isPassed = isDayPassedByDate({ monthIndex: col.monthIndex, date: col.date });
-                    const cbState = appData.checkboxStates && appData.checkboxStates[cbId];
-                    const isChecked = cbState ? cbState.state === true : false;
-                    if (isPassed && !isChecked && !isAdmin) {
-                        const span = document.createElement('span');
-                        span.textContent = '✕';
-                        span.className = 'cross-mark';
-                        td.appendChild(span);
-                        td.classList.add('missed');
-                    } else {
-                        const cb = document.createElement('input');
-                        cb.type = 'checkbox';
-                        cb.id = cbId;
-                        cb.checked = isChecked;
-                        if (isPassed && !isAdmin) cb.disabled = true;
-                        cb.addEventListener('change', function() {
-                            const now = new Date().toISOString().slice(0, 10);
-                            const checked = this.checked;
-                            if (!appData.checkboxStates) appData.checkboxStates = {};
-                            if (checked) {
-                                appData.checkboxStates[this.id] = { state: true, date: now };
-                                const depNum = parseInt(departmentId.split('_')[0]) || 1;
-                                addLog('daily_' + todayDay + '_' + taskIdx, depNum, 'done', 'Ежедневный Самоконтроль', '');
-                            } else {
-                                appData.checkboxStates[this.id] = { state: false, date: null };
-                                const depNum = parseInt(departmentId.split('_')[0]) || 1;
-                                addLog('daily_' + todayDay + '_' + taskIdx, depNum, 'uncheck', 'Ежедневный Самоконтроль', '');
-                            }
-                            updateCellStyle(this);
-                        });
-                        td.appendChild(cb);
-                        setTimeout(() => updateCellStyle(cb), 0);
-                    }
-                    taskRow.appendChild(td);
-                });
-                if (taskIdx === tasks.length - 1) taskRow.classList.add('day-end');
-                tbody.appendChild(taskRow);
-            });
-
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            return table;
-        }
-
-        function saveNote(dow, taskIdx) {
-            const note = document.getElementById('noteInput').value.trim();
-            const notes = getDailyTaskNotes();
-            const key = `${dow}_${taskIdx}`;
-            if (note) {
-                notes[key] = note;
-                addChange(`Заметка для задачи "${getDailyTasks()[dow][taskIdx]}" обновлена.`);
-                addLog('note_' + dow + '_' + taskIdx, 0, 'edit_note', 'Ежедневный Самоконтроль', note);
-                alert('Заметка сохранена.');
-            } else {
-                delete notes[key];
-                addChange(`Заметка для задачи "${getDailyTasks()[dow][taskIdx]}" удалена.`);
-                addLog('note_' + dow + '_' + taskIdx, 0, 'delete_note', 'Ежедневный Самоконтроль', '');
-                alert('Заметка удалена.');
-            }
-            saveDailyTaskNotes(notes);
-            closeModal();
-            buildTab1();
-        }
-
-        function updateCellStyle(checkbox) {
-            const td = checkbox.closest('td');
-            if (!td) return;
-            const id = checkbox.id;
-            const cbState = (appData.checkboxStates && appData.checkboxStates[id]) || null;
-            const savedState = cbState ? cbState.state : null;
-            const savedDate = cbState ? cbState.date : null;
-            const parts = id.split('_');
-            const plannedDate = parts[parts.length - 1];
-            td.classList.remove('done-on-time', 'done-late', 'missed');
-            if (savedState === true) {
-                if (savedDate === plannedDate) td.classList.add('done-on-time');
-                else td.classList.add('done-late');
-            }
-        }
-
-        function applyAllStyles() {
-            document.querySelectorAll('#tab1 input[type="checkbox"]').forEach(cb => updateCellStyle(cb));
-        }
-
-        // ====================================================================
-        // 6. ВКЛАДКА 2 - КОНТРОЛЬ ЗАДАЧ
-        // ====================================================================
-        function buildTab2() {
-            const container = document.getElementById('tab2');
-            container.innerHTML = '';
-            const data = getControlTasksData();
-            const tasks = data.tasks;
-            const taskStatus = data.taskStatus;
-
-            if (tasks.length === 0) {
-                container.innerHTML = '<div class="no-data">Нет задач. Добавьте задачу в режиме админа.</div>';
-                return;
-            }
-
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-
-            const deadlineRow = document.createElement('tr');
-            const emptyTh = document.createElement('th');
-            emptyTh.textContent = 'Отдел \\ Задача';
-            deadlineRow.appendChild(emptyTh);
-            tasks.forEach(task => {
-                const th = document.createElement('th');
-                th.textContent = task.deadline || '—';
-                th.style.fontWeight = 'normal';
-                th.style.fontSize = '10px';
-                deadlineRow.appendChild(th);
-            });
-            thead.appendChild(deadlineRow);
-
-            const titleRow = document.createElement('tr');
-            const emptyTh2 = document.createElement('th');
-            emptyTh2.textContent = '';
-            titleRow.appendChild(emptyTh2);
-            tasks.forEach(task => {
-                const th = document.createElement('th');
-                th.className = 'task-title-cell';
-                const span = document.createElement('span');
-                span.textContent = task.title;
-                span.className = 'task-desc';
-                span.title = 'Кликните для подробного описания';
-                span.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    showTaskDescription(task);
-                });
-                th.appendChild(span);
-                if (isAdmin) {
-                    const editBtn = document.createElement('button');
-                    editBtn.textContent = '✎';
-                    editBtn.style.marginLeft = '5px';
-                    editBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        editTask(task.id);
-                    });
-                    th.appendChild(editBtn);
-                    const delBtn = document.createElement('button');
-                    delBtn.textContent = '🗑';
-                    delBtn.style.marginLeft = '3px';
-                    delBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        deleteTask(task.id);
-                    });
-                    th.appendChild(delBtn);
-                }
-                titleRow.appendChild(th);
-            });
-            thead.appendChild(titleRow);
-
-            for (let dep = 1; dep <= DEPARTMENTS; dep++) {
-                const row = document.createElement('tr');
-                const depCell = document.createElement('td');
-                depCell.textContent = `Отдел ${dep}`;
-                depCell.style.fontWeight = 'bold';
-                row.appendChild(depCell);
-
-                tasks.forEach(task => {
-                    const key = task.id + '_' + dep;
-                    const status = taskStatus[key] || { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
-                    const td = document.createElement('td');
-
-                    let cellClass = '';
-                    if (status.blocked) {
-                        cellClass = 'blocked-cell';
-                    } else if (status.done) {
-                        cellClass = 'done-cell';
-                        td.title = 'Нажмите для просмотра комментария';
-                        td.addEventListener('click', function(e) {
-                            if (status.comment) showCommentWithEdit(task.id, dep, status.comment);
-                            else alert('Комментарий не был оставлен.');
-                        });
-                    } else {
-                        const now = new Date();
-                        const deadline = new Date(task.deadline + 'T00:00:00');
-                        if (now > deadline) cellClass = 'overdue-cell';
-                        const cb = document.createElement('input');
-                        cb.type = 'checkbox';
-                        cb.checked = false;
-                        cb.addEventListener('change', function() {
-                            const isChecked = this.checked;
-                            if (isChecked) {
-                                const modal = document.getElementById('modal');
-                                const content = document.getElementById('modalContent');
-                                content.innerHTML = `
-                                    <h3>Подтверждение выполнения</h3>
-                                    <p><strong>Задача:</strong> ${task.title}</p>
-                                    <p><strong>Отдел:</strong> ${dep}</p>
-                                    <p>Кратко опишите, что было сделано:</p>
-                                    <textarea id="commentInput" rows="4" placeholder="Опишите, что было сделано..."></textarea>
-                                    <button class="btn-ok" onclick="confirmTask('${task.id}', ${dep})">Подтвердить</button>
-                                    <button class="btn-cancel" onclick="cancelTaskCheck('${task.id}', ${dep})">Отмена</button>
-                                `;
-                                modal.classList.add('visible');
-                                document.getElementById('commentInput').focus();
-                            } else {
-                                const data2 = getControlTasksData();
-                                const key2 = task.id + '_' + dep;
-                                if (data2.taskStatus[key2]) {
-                                    data2.taskStatus[key2].done = false;
-                                    data2.taskStatus[key2].comment = '';
-                                    data2.taskStatus[key2].doneDate = null;
-                                    data2.taskStatus[key2].pendingComment = false;
-                                }
-                                saveControlTasksData(data2);
-                                addLog(task.id, dep, 'uncheck', 'Контроль задач', '');
-                                buildTab2();
-                            }
-                        });
-                        td.appendChild(cb);
-                    }
-
-                    if (status.blocked) { td.textContent = '⛔'; td.className = cellClass; }
-                    else if (status.done) { td.textContent = '✅'; td.className = cellClass; }
-                    else { td.className = cellClass; }
-
-                    if (isAdmin) {
-                        const blockBtn = document.createElement('button');
-                        blockBtn.textContent = status.blocked ? '🔓' : '🔒';
-                        blockBtn.style.marginLeft = '3px';
-                        blockBtn.addEventListener('click', function(e) {
-                            e.stopPropagation();
-                            const data2 = getControlTasksData();
-                            const key2 = task.id + '_' + dep;
-                            if (!data2.taskStatus[key2]) data2.taskStatus[key2] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
-                            data2.taskStatus[key2].blocked = !data2.taskStatus[key2].blocked;
-                            if (data2.taskStatus[key2].blocked) {
-                                data2.taskStatus[key2].done = false;
-                                data2.taskStatus[key2].comment = '';
-                                data2.taskStatus[key2].doneDate = null;
-                            }
-                            addLog(task.id, dep, 'block', 'Контроль задач', '');
-                            saveControlTasksData(data2);
-                            addChange(`Блокировка для задачи "${task.title}" (отдел ${dep}) изменена.`);
-                            buildTab2();
-                        });
-                        td.appendChild(blockBtn);
-                    }
-                    row.appendChild(td);
-                });
-                tbody.appendChild(row);
-            }
-
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            container.appendChild(table);
-        }
-
-        function showCommentWithEdit(taskId, depId, currentComment) {
-            const modal = document.getElementById('modal');
-            const content = document.getElementById('modalContent');
-            content.innerHTML = `
-                <h3>Комментарий к выполнению</h3>
-                <p><strong>Задача:</strong> ${getControlTasksData().tasks.find(t => t.id === taskId)?.title || ''}</p>
-                <p><strong>Отдел:</strong> ${depId}</p>
-                <div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${currentComment}</div>
-                <br>
-                <button class="btn-ok" onclick="editCommentMode('${taskId}', ${depId})">Редактировать</button>
-                <button class="btn-cancel" onclick="closeModal()">Закрыть</button>
-            `;
-            modal.classList.add('visible');
-        }
-
-        function editCommentMode(taskId, depId) {
-            const data = getControlTasksData();
-            const key = taskId + '_' + depId;
-            const status = data.taskStatus[key];
-            if (!status) return;
-            const content = document.getElementById('modalContent');
-            content.innerHTML = `
-                <h3>Редактирование комментария</h3>
-                <p><strong>Задача:</strong> ${data.tasks.find(t => t.id === taskId)?.title || ''}</p>
-                <p><strong>Отдел:</strong> ${depId}</p>
-                <textarea id="editCommentText" rows="4">${status.comment || ''}</textarea>
-                <button class="btn-ok" onclick="saveCommentEdit('${taskId}', ${depId})">Сохранить</button>
-                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-            `;
-        }
-
-        function saveCommentEdit(taskId, depId) {
-            const newComment = document.getElementById('editCommentText').value.trim();
-            if (!newComment) { alert('Комментарий не может быть пустым.'); return; }
-            const data = getControlTasksData();
-            const key = taskId + '_' + depId;
-            if (data.taskStatus[key]) {
-                data.taskStatus[key].comment = newComment;
-                saveControlTasksData(data);
-                addLog(taskId, depId, 'edit_comment', 'Контроль задач', newComment);
-                closeModal();
-                alert('Комментарий обновлён.');
-                buildTab2();
-            }
-        }
-
-        function confirmTask(taskId, depId) {
-            const comment = document.getElementById('commentInput').value.trim();
-            if (!comment) { alert('Комментарий обязателен для подтверждения выполнения.'); return; }
-            const data = getControlTasksData();
-            const key = taskId + '_' + depId;
-            if (!data.taskStatus[key]) data.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
-            data.taskStatus[key].done = true;
-            data.taskStatus[key].comment = comment;
-            data.taskStatus[key].doneDate = new Date().toISOString();
-            data.taskStatus[key].pendingComment = false;
-            saveControlTasksData(data);
-            addLog(taskId, depId, 'done', 'Контроль задач', comment);
-            addChange(`Выполнение задачи "${data.tasks.find(t => t.id === taskId)?.title}" (отдел ${depId}) подтверждено.`);
-            closeModal();
-            alert('Задача отмечена как выполненная.');
-            buildTab2();
-        }
-
-        function cancelTaskCheck(taskId, depId) {
-            const data = getControlTasksData();
-            const key = taskId + '_' + depId;
-            if (data.taskStatus[key]) {
-                data.taskStatus[key].done = false;
-                data.taskStatus[key].pendingComment = false;
-            }
-            saveControlTasksData(data);
-            closeModal();
-            buildTab2();
-        }
-
-        // ====================================================================
-        // 7. ВКЛАДКА 3 - СТАТИСТИКА
-        // ====================================================================
-        function buildTab3() {
-            const container = document.getElementById('tab3');
-            container.innerHTML = '';
-            if (!isAdmin) {
-                container.innerHTML = '<div class="no-data">Доступно только в режиме администратора.</div>';
-                return;
-            }
-
-            const data = getControlTasksData();
-            const tasks = data.tasks;
-            const allLogs = data.logs || [];
-
-            const filterDiv = document.createElement('div');
-            filterDiv.className = 'stats-filter';
-            filterDiv.innerHTML = `
-                <label>Тип задач: 
-                    <select id="statsTypeFilter">
-                        <option value="all">Все</option>
-                        <option value="Ежедневный Самоконтроль">Ежедневные задачи</option>
-                        <option value="Контроль задач">Разовые</option>
-                    </select>
-                </label>
-                <label>Отдел: 
-                    <select id="statsDeptFilter">
-                        <option value="all">Все</option>
-                        ${Array.from({length: DEPARTMENTS}, (_,i) => `<option value="${i+1}">Отдел ${i+1}</option>`).join('')}
-                    </select>
-                </label>
-                <label>Дата: 
-                    <select id="statsDateFilter">
-                        <option value="all">Все</option>
-                        <option value="today">Сегодня</option>
-                        <option value="week">Неделя</option>
-                    </select>
-                </label>
-                <button onclick="applyStatsFilters()">Применить</button>
-            `;
-            container.appendChild(filterDiv);
-
-            const statsContainer = document.createElement('div');
-            statsContainer.id = 'statsContainer';
-            container.appendChild(statsContainer);
-
-            function renderStats() {
-                const typeFilter = document.getElementById('statsTypeFilter').value;
-                const deptFilter = parseInt(document.getElementById('statsDeptFilter').value);
-                const dateFilter = document.getElementById('statsDateFilter').value;
-
-                let filteredLogs = allLogs.filter(log => log.userType === 'user');
-                if (typeFilter !== 'all') filteredLogs = filteredLogs.filter(log => log.taskType === typeFilter);
-                if (deptFilter !== 'all') filteredLogs = filteredLogs.filter(log => log.depId === deptFilter);
-                const now = new Date();
-                const todayStr = now.toISOString().slice(0, 10);
-                if (dateFilter === 'today') {
-                    filteredLogs = filteredLogs.filter(log => log.timestamp && log.timestamp.slice(0, 10) === todayStr);
-                } else if (dateFilter === 'week') {
-                    const weekAgo = new Date(now);
-                    weekAgo.setDate(weekAgo.getDate() - 7);
-                    const weekAgoStr = weekAgo.toISOString();
-                    filteredLogs = filteredLogs.filter(log => log.timestamp >= weekAgoStr);
-                }
-
-                const statusMap = {};
-                filteredLogs.forEach(log => {
-                    const key = log.taskId + '_' + log.depId;
-                    if (!statusMap[key] || new Date(log.timestamp) > new Date(statusMap[key].timestamp)) statusMap[key] = log;
-                });
-
-                const taskIds = new Set();
-                filteredLogs.forEach(log => taskIds.add(log.taskId));
-                const allTasks = tasks.filter(t => taskIds.has(t.id));
-                const dailyTaskIds = [...taskIds].filter(id => id.startsWith('daily_') || id.startsWith('note_'));
-                const dailyTasks = dailyTaskIds.map(id => ({
-                    id: id,
-                    title: id.startsWith('daily_') ? 'Ежедневная задача' : 'Заметка',
-                    type: 'Ежедневный Самоконтроль',
-                    deadline: '—'
-                }));
-
-                const allTasksForDisplay = [...allTasks, ...dailyTasks];
-                const statsContainer = document.getElementById('statsContainer');
-                statsContainer.innerHTML = '';
-
-                const statusTable = document.createElement('table');
-                statusTable.className = 'stats-table';
-                const thead = document.createElement('thead');
-                thead.innerHTML = `
-                    <tr>
-                        <th>Задача</th><th>Тип</th><th>Дедлайн</th><th>Отдел</th>
-                        <th>Статус</th><th>Комментарий</th><th>Дата выполнения</th>
-                    </tr>
-                `;
-                statusTable.appendChild(thead);
-                const tbody = document.createElement('tbody');
-
-                allTasksForDisplay.forEach(task => {
-                    for (let d = 1; d <= DEPARTMENTS; d++) {
-                        const key = task.id + '_' + d;
-                        const log = statusMap[key];
-                        if (!log) continue;
-                        const status = log.action === 'done' ? '✅ Выполнено' : (log.action === 'block' ? '⛔ Заблокировано' : '⏳ Не выполнено');
-                        const comment = log.comment || '';
-                        const doneDate = log.action === 'done' ? (log.date || log.timestamp) : '—';
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${task.title}</td>
-                            <td>${task.type || 'Контроль задач'}</td>
-                            <td>${task.deadline || '—'}</td>
-                            <td>Отдел ${d}</td>
-                            <td>${status}</td>
-                            <td style="white-space:pre-wrap;max-width:150px;">${comment}</td>
-                            <td>${doneDate}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    }
-                });
-                statusTable.appendChild(tbody);
-                statsContainer.appendChild(statusTable);
-
-                const percentDiv = document.createElement('div');
-                percentDiv.innerHTML = '<h3>Статистика выполнения по отделам</h3>';
-                const percentTable = document.createElement('table');
-                percentTable.className = 'stats-table';
-                const pThead = document.createElement('thead');
-                pThead.innerHTML = `<tr><th>Отдел</th><th>Выполнено</th><th>Всего (активных)</th><th>%</th><th>Просрочено</th></tr>`;
-                percentTable.appendChild(pThead);
-                const pTbody = document.createElement('tbody');
-                const deptStats = {};
-                for (let d = 1; d <= DEPARTMENTS; d++) deptStats[d] = { total: 0, done: 0, overdue: 0 };
-
-                const controlData = getControlTasksData();
-                const taskStatus = controlData.taskStatus;
-                const allControlTasks = controlData.tasks;
-                const dailyLogs = allLogs.filter(log => log.taskType === 'Ежедневный Самоконтроль' && log.userType === 'user');
-                const dailyStatusMap = {};
-                dailyLogs.forEach(log => {
-                    const key = log.taskId + '_' + log.depId;
-                    if (!dailyStatusMap[key] || new Date(log.timestamp) > new Date(dailyStatusMap[key].timestamp)) dailyStatusMap[key] = log;
-                });
-
-                for (let d = 1; d <= DEPARTMENTS; d++) {
-                    allControlTasks.forEach(task => {
-                        const key = task.id + '_' + d;
-                        const status = taskStatus[key];
-                        if (status && !status.blocked) {
-                            deptStats[d].total++;
-                            if (status.done) deptStats[d].done++;
-                            if (!status.done && task.deadline && task.deadline !== '—') {
-                                const now2 = new Date();
-                                const deadline = new Date(task.deadline + 'T00:00:00');
-                                if (now2 > deadline) deptStats[d].overdue++;
-                            }
-                        }
-                    });
-                    const dailyKeys = Object.keys(dailyStatusMap).filter(k => k.endsWith('_' + d));
-                    dailyKeys.forEach(key => {
-                        const log = dailyStatusMap[key];
-                        if (log.action === 'done') { deptStats[d].total++; deptStats[d].done++; }
-                        else if (log.action === 'uncheck' || log.action === 'block') deptStats[d].total++;
-                    });
-                }
-
-                for (let d = 1; d <= DEPARTMENTS; d++) {
-                    const stat = deptStats[d];
-                    const pct = stat.total > 0 ? Math.round((stat.done / stat.total) * 100) : 0;
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>Отдел ${d}</td><td>${stat.done}</td><td>${stat.total}</td><td>${pct}%</td><td>${stat.overdue}</td>`;
-                    pTbody.appendChild(tr);
-                }
-                percentTable.appendChild(pTbody);
-                percentDiv.appendChild(percentTable);
-                statsContainer.appendChild(percentDiv);
-
-                const logsDiv = document.createElement('div');
-                logsDiv.innerHTML = '<h3>Логи действий (отфильтрованные)</h3>';
-                const logTable = document.createElement('table');
-                logTable.className = 'stats-table';
-                const logThead = document.createElement('thead');
-                logThead.innerHTML = `<tr><th>Наименование задачи</th><th>Тип</th><th>Дедлайн</th><th>Время клика</th><th>Действие</th><th>Комментарий</th></tr>`;
-                logTable.appendChild(logThead);
-                const logTbody = document.createElement('tbody');
-                const sortedLogs = filteredLogs.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-                sortedLogs.forEach(log => {
-                    let taskTitle = log.taskId;
-                    let taskType = log.taskType || 'Контроль задач';
-                    let deadline = '—';
-                    if (log.taskId.startsWith('daily_') || log.taskId.startsWith('note_')) {
-                        taskTitle = log.taskId;
-                        taskType = 'Ежедневный Самоконтроль';
-                    } else {
-                        const task = tasks.find(t => t.id === log.taskId);
-                        if (task) { taskTitle = task.title; deadline = task.deadline || '—'; }
-                    }
-                    const tr = document.createElement('tr');
-                    const actionLabel = log.action === 'done' ? 'Выполнено' :
-                                        (log.action === 'uncheck' ? 'Снято' :
-                                        (log.action === 'block' ? 'Блокировка' :
-                                        (log.action === 'edit_note' ? 'Редактирование заметки' :
-                                        (log.action === 'delete_note' ? 'Удаление заметки' :
-                                        (log.action === 'edit_comment' ? 'Редактирование комментария' : log.action)))));
-                    tr.innerHTML = `
-                        <td>${taskTitle}</td>
-                        <td>${taskType}</td>
-                        <td>${deadline}</td>
-                        <td>${log.date || log.timestamp}</td>
-                        <td>${actionLabel}</td>
-                        <td style="white-space:pre-wrap;max-width:150px;">${log.comment || ''}</td>
-                    `;
-                    logTbody.appendChild(tr);
-                });
-                logTable.appendChild(logTbody);
-                logsDiv.appendChild(logTable);
-                statsContainer.appendChild(logsDiv);
-            }
-
-            window.applyStatsFilters = renderStats;
-            renderStats();
-
-            const refreshBtn = document.createElement('button');
-            refreshBtn.textContent = 'Обновить статистику';
-            refreshBtn.onclick = function() { buildTab3(); };
-            container.appendChild(refreshBtn);
-        }
-
-        // ====================================================================
-        // 8. ВКЛАДКА 4 - РЕДАКТОР ЗАДАЧ
-        // ====================================================================
-        function buildTab4() {
-            const container = document.getElementById('tab4');
-            container.innerHTML = '';
-            if (!isAdmin) {
-                container.innerHTML = '<div class="no-data">Доступно только в режиме администратора.</div>';
-                return;
-            }
-
-            const tasksByDay = getDailyTasks();
-            const dayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница'];
-            const editorDiv = document.createElement('div');
-            editorDiv.className = 'task-editor';
-
-            for (let dow = 1; dow <= 5; dow++) {
-                const block = document.createElement('div');
-                block.className = 'day-block';
-                const title = document.createElement('h4');
-                title.textContent = dayNames[dow-1];
-                block.appendChild(title);
-
-                const list = document.createElement('div');
-                list.className = 'task-list';
-                const tasks = tasksByDay[dow] || [];
-
-                tasks.forEach((task, idx) => {
-                    const item = document.createElement('div');
-                    item.className = 'task-item';
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.value = task;
-                    input.addEventListener('change', function() {
-                        const newVal = this.value.trim();
-                        if (newVal === '') { alert('Задача не может быть пустой'); this.value = task; return; }
-                        const data = getDailyTasks();
-                        data[dow][idx] = newVal;
-                        saveDailyTasks(data);
-                        addChange(`Задача "${task}" заменена на "${newVal}" (${dayNames[dow-1]})`);
-                        alert('Задача обновлена.');
-                        buildTab1();
-                        buildTab4();
-                    });
-                    item.appendChild(input);
-                    const delBtn = document.createElement('button');
-                    delBtn.textContent = '✕';
-                    delBtn.addEventListener('click', function() {
-                        if (confirm('Удалить задачу?')) {
-                            const data = getDailyTasks();
-                            data[dow].splice(idx, 1);
-                            saveDailyTasks(data);
-                            addChange(`Задача "${task}" удалена (${dayNames[dow-1]})`);
-                            alert('Задача удалена.');
-                            buildTab1();
-                            buildTab4();
-                        }
-                    });
-                    item.appendChild(delBtn);
-                    list.appendChild(item);
-                });
-                block.appendChild(list);
-
-                const addForm = document.createElement('div');
-                addForm.className = 'add-task-form';
-                const newInput = document.createElement('input');
-                newInput.type = 'text';
-                newInput.placeholder = 'Новая задача...';
-                const addBtn = document.createElement('button');
-                addBtn.textContent = 'Добавить';
-                addBtn.addEventListener('click', function() {
-                    const val = newInput.value.trim();
-                    if (val === '') { alert('Введите задачу'); return; }
-                    const data = getDailyTasks();
-                    if (!data[dow]) data[dow] = [];
-                    data[dow].push(val);
-                    saveDailyTasks(data);
-                    addChange(`Добавлена задача "${val}" (${dayNames[dow-1]})`);
-                    alert('Задача добавлена.');
-                    buildTab1();
-                    buildTab4();
-                });
-                newInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') addBtn.click();
-                });
-                addForm.appendChild(newInput);
-                addForm.appendChild(addBtn);
-                block.appendChild(addForm);
-                editorDiv.appendChild(block);
-            }
-
-            container.appendChild(editorDiv);
-        }
-
-        // ====================================================================
-        // 9. РЕДАКТИРОВАНИЕ КОНТРОЛЬНЫХ ЗАДАЧ
-        // ====================================================================
-        function showTaskDescription(task) {
-            const modal = document.getElementById('modal');
-            const content = document.getElementById('modalContent');
-            content.innerHTML = `
-                <h3>${task.title}</h3>
-                <p><strong>Описание:</strong> ${task.description || 'Нет описания'}</p>
-                <p><strong>Дедлайн:</strong> ${task.deadline || 'Не задан'}</p>
-                <button class="btn-cancel" onclick="closeModal()">Закрыть</button>
-            `;
-            modal.classList.add('visible');
-        }
-
-        function editTask(taskId) {
-            const data = getControlTasksData();
-            const task = data.tasks.find(t => t.id === taskId);
-            if (!task) return;
-            const modal = document.getElementById('modal');
-            const content = document.getElementById('modalContent');
-            content.innerHTML = `
-                <h3>Редактирование задачи</h3>
-                <input type="text" id="editTitle" value="${task.title}" placeholder="Название">
-                <textarea id="editDesc" placeholder="Описание">${task.description || ''}</textarea>
-                <input type="date" id="editDeadline" value="${task.deadline || ''}">
-                <button class="btn-ok" onclick="saveEditTask('${taskId}')">Сохранить</button>
-                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-            `;
-            modal.classList.add('visible');
-        }
-
-        function saveEditTask(taskId) {
-            const title = document.getElementById('editTitle').value.trim();
-            const description = document.getElementById('editDesc').value.trim();
-            const deadline = document.getElementById('editDeadline').value;
-            if (!title) { alert('Название обязательно'); return; }
-            const data = getControlTasksData();
-            const task = data.tasks.find(t => t.id === taskId);
-            if (task) {
-                const oldTitle = task.title;
-                task.title = title;
-                task.description = description;
-                task.deadline = deadline;
-                saveControlTasksData(data);
-                addChange(`Задача "${oldTitle}" обновлена (новое название: "${title}")`);
-                alert('Задача обновлена.');
-            }
-            closeModal();
-            buildTab2();
-        }
-
-        function deleteTask(taskId) {
-            if (!confirm('Удалить задачу?')) return;
-            const data = getControlTasksData();
-            const task = data.tasks.find(t => t.id === taskId);
-            if (task) addChange(`Задача "${task.title}" удалена из Контроля задач`);
-            data.tasks = data.tasks.filter(t => t.id !== taskId);
-            Object.keys(data.taskStatus).forEach(key => {
-                if (key.startsWith(taskId + '_')) delete data.taskStatus[key];
-            });
-            saveControlTasksData(data);
-            alert('Задача удалена.');
-            buildTab2();
-        }
-
-        function addTask() {
-            const modal = document.getElementById('modal');
-            const content = document.getElementById('modalContent');
-            content.innerHTML = `
-                <h3>Добавить новую задачу (Контроль задач)</h3>
-                <input type="text" id="newTitle" placeholder="Название задачи">
-                <textarea id="newDesc" placeholder="Описание"></textarea>
-                <input type="date" id="newDeadline">
-                <button class="btn-ok" onclick="saveNewTask()">Добавить</button>
-                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-            `;
-            modal.classList.add('visible');
-        }
-
-        function saveNewTask() {
-            const title = document.getElementById('newTitle').value.trim();
-            const description = document.getElementById('newDesc').value.trim();
-            const deadline = document.getElementById('newDeadline').value;
-            if (!title) { alert('Название обязательно'); return; }
-            const data = getControlTasksData();
-            const newId = 't' + Date.now();
-            data.tasks.push({ id: newId, title, description, deadline, type: 'Контроль задач' });
-            for (let d = 1; d <= DEPARTMENTS; d++) {
-                const key = newId + '_' + d;
-                data.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
-            }
-            saveControlTasksData(data);
-            addChange(`Добавлена задача "${title}" в Контроль задач`);
-            alert('Задача добавлена.');
-            closeModal();
-            buildTab2();
-        }
-
-        // ====================================================================
-        // 10. СОХРАНЕНИЕ И ВЫХОД
-        // ====================================================================
-        function saveChanges() {
-            if (!hasUnsavedChanges) { alert('Нет несохранённых изменений.'); return; }
-            const modal = document.getElementById('modal');
-            const content = document.getElementById('modalContent');
-            let changesHtml = changeLog.map(item => `<div class="change-item">• ${item}</div>`).join('');
-            content.innerHTML = `
-                <h3>Подтверждение сохранения</h3>
-                <p>Будут сохранены следующие изменения:</p>
-                <div style="max-height:250px;overflow-y:auto;text-align:left;margin:10px 0;border:1px solid #eee;border-radius:4px;">${changesHtml}</div>
-                <button class="btn-ok" onclick="confirmSave()">Подтвердить</button>
-                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-            `;
-            modal.classList.add('visible');
-        }
-
-        function confirmSave() {
-            hasUnsavedChanges = false;
-            changeLog = [];
-            closeModal();
-            alert('Изменения сохранены.');
-        }
-
-        function logoutAdmin() {
-            if (hasUnsavedChanges) {
-                if (confirm('Есть несохранённые изменения. При выходе они будут потеряны. Всё равно выйти?')) {
-                    hasUnsavedChanges = false; changeLog = []; doLogout();
-                }
-            } else doLogout();
-        }
-
-        function doLogout() {
-            isAdmin = false;
-            saveFilter();
-            const adminBtn = document.getElementById('adminBtn');
-            adminBtn.classList.remove('active');
-            adminBtn.textContent = 'Админ';
-            document.getElementById('adminPanel').style.display = 'none';
-            document.getElementById('statsTabBtn').style.display = 'none';
-            document.getElementById('editorTabBtn').style.display = 'none';
-            hasUnsavedChanges = false; changeLog = [];
-            const activeTab = document.querySelector('.tab-content.active');
-            if (activeTab) {
-                const tabId = activeTab.id;
-                if (tabId === 'tab1') buildTab1();
-                else if (tabId === 'tab2') buildTab2();
-                else if (tabId === 'tab3') buildTab3();
-                else if (tabId === 'tab4') buildTab4();
-            }
-        }
-
-        // ====================================================================
-        // 11. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
-        // ====================================================================
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-            if (btn) btn.classList.add('active');
-
-            const filterPanel = document.getElementById('filterPanel');
-            filterPanel.style.display = (tabId === 'tab1') ? 'flex' : 'none';
-
-            if (tabId === 'tab1') buildTab1();
-            else if (tabId === 'tab2') buildTab2();
-            else if (tabId === 'tab3') buildTab3();
-            else if (tabId === 'tab4') buildTab4();
-        }
-
-        // ====================================================================
-        // 12. АУТЕНТИФИКАЦИЯ И ИНИЦИАЛИЗАЦИЯ
-        // ====================================================================
-        async function signInAnonymously() {
-            try {
-                const { data, error } = await supabaseClient.auth.signInAnonymously();
-                if (error) throw error;
-                currentUserId = data.user.id;
-                console.log('Анонимный вход выполнен, uid:', currentUserId);
-                loadAppData();
-            } catch (error) {
-                console.error('Ошибка анонимного входа:', error);
-                loadAppData();
-            }
-        }
-
-        function init() {
-            loadState();
-            document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    switchTab(this.dataset.tab);
-                });
-            });
-
-            document.querySelectorAll('.month-filter, .day-filter').forEach(cb => {
-                cb.addEventListener('change', function() {
-                    if (showTodayOnly) {
-                        showTodayOnly = false;
-                        document.getElementById('todayBtn').classList.remove('active');
-                        document.getElementById('todayBtn').textContent = 'Сегодня';
-                    }
-                    updateFilterFromUI();
-                    if (document.getElementById('tab1').classList.contains('active')) buildTab1();
-                });
-            });
-
-            document.getElementById('todayBtn').addEventListener('click', function() {
-                showTodayOnly = !showTodayOnly;
-                if (showTodayOnly) { this.classList.add('active'); this.textContent = 'Сегодня (вкл)'; }
-                else { this.classList.remove('active'); this.textContent = 'Сегодня'; }
-                saveFilter();
-                if (document.getElementById('tab1').classList.contains('active')) buildTab1();
-            });
-
-            document.getElementById('resetFiltersBtn').addEventListener('click', function() {
-                selectedMonths = [0,1,2,3,4];
-                selectedDays = [1,2,3,4,5];
-                showTodayOnly = false;
-                document.querySelectorAll('.month-filter').forEach(cb => cb.checked = true);
-                document.querySelectorAll('.day-filter').forEach(cb => cb.checked = true);
-                document.getElementById('todayBtn').classList.remove('active');
-                document.getElementById('todayBtn').textContent = 'Сегодня';
-                saveFilter();
-                if (document.getElementById('tab1').classList.contains('active')) buildTab1();
-            });
-
-            document.getElementById('adminBtn').addEventListener('click', function() {
-                if (isAdmin) logoutAdmin();
-                else openAdminModal();
-            });
-
-            document.getElementById('modal').addEventListener('click', function(e) {
-                if (e.target === this) closeModal();
-            });
-
-            if (appData) switchTab('tab1');
-        }
-
-        function updateFilterFromUI() {
-            selectedMonths = [];
-            document.querySelectorAll('.month-filter').forEach(cb => { if (cb.checked) selectedMonths.push(parseInt(cb.value)); });
-            selectedDays = [];
-            document.querySelectorAll('.day-filter').forEach(cb => { if (cb.checked) selectedDays.push(parseInt(cb.value)); });
-            saveFilter();
-        }
-
-        function openAdminModal() {
-            const modal = document.getElementById('modal');
-            const content = document.getElementById('modalContent');
-            content.innerHTML = `
-                <h3>Вход в режим администратора</h3>
-                <p>Введите логин и пароль:</p>
-                <input type="text" id="adminLogin" placeholder="Логин">
-                <input type="password" id="adminPwd" placeholder="Пароль">
-                <br>
-                <button class="btn-ok" onclick="checkAdminCredentials()">Войти</button>
-                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-            `;
-            modal.classList.add('visible');
-            document.getElementById('adminLogin').focus();
-            document.getElementById('adminLogin').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') document.getElementById('adminPwd').focus();
-            });
-            document.getElementById('adminPwd').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') checkAdminCredentials();
-            });
-        }
-
-        function checkAdminCredentials() {
-            const login = document.getElementById('adminLogin').value.trim();
-            const pwd = document.getElementById('adminPwd').value.trim();
-            if (login === 'admin' && pwd === '14082026') {
-                isAdmin = true;
-                saveFilter();
-                closeModal();
-                const adminBtn = document.getElementById('adminBtn');
-                adminBtn.classList.add('active');
-                adminBtn.textContent = 'Админ (вкл)';
-                document.getElementById('adminPanel').style.display = 'flex';
-                document.getElementById('statsTabBtn').style.display = 'inline-block';
-                document.getElementById('editorTabBtn').style.display = 'inline-block';
-                hasUnsavedChanges = false;
-                changeLog = [];
-                const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab) {
-                    const tabId = activeTab.id;
-                    if (tabId === 'tab1') buildTab1();
-                    else if (tabId === 'tab2') buildTab2();
-                    else if (tabId === 'tab3') buildTab3();
-                    else if (tabId === 'tab4') buildTab4();
-                }
-            } else alert('Неверный логин или пароль');
-        }
-
-        function closeModal() {
-            document.getElementById('modal').classList.remove('visible');
-        }
-
-        // ====================================================================
-        // ЗАПУСК
-        // ====================================================================
-        document.addEventListener('DOMContentLoaded', function() {
-            signInAnonymously();
-            const checkData = setInterval(() => {
-                if (appData) {
-                    clearInterval(checkData);
-                    init();
-                }
-            }, 500);
-            setTimeout(() => {
-                clearInterval(checkData);
-                if (!appData) {
-                    appData = {
-                        dailyTasks: JSON.parse(JSON.stringify(DEFAULT_DAILY_TASKS)),
-                        dailyNotes: {},
-                        controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS)),
-                        checkboxStates: {}
-                    };
-                    init();
-                }
-            }, 5000);
-        });
-    </script>
+<h1>Ежедневный Самоконтроль</h1>
+
+<div class="filter-panel" id="filterPanel">
+<div class="filter-group" id="monthFilterGroup">
+<label>Месяцы:</label>
+<label><input type="checkbox" class="month-filter" value="0" checked> Август</label>
+<label><input type="checkbox" class="month-filter" value="1" checked> Сентябрь</label>
+<label><input type="checkbox" class="month-filter" value="2" checked> Октябрь</label>
+<label><input type="checkbox" class="month-filter" value="3" checked> Ноябрь</label>
+<label><input type="checkbox" class="month-filter" value="4" checked> Декабрь</label>
+</div>
+<div class="filter-group" id="dayFilterGroup">
+<label>Дни недели:</label>
+<label><input type="checkbox" class="day-filter" value="1" checked> ПН</label>
+<label><input type="checkbox" class="day-filter" value="2" checked> ВТ</label>
+<label><input type="checkbox" class="day-filter" value="3" checked> СР</label>
+<label><input type="checkbox" class="day-filter" value="4" checked> ЧТ</label>
+<label><input type="checkbox" class="day-filter" value="5" checked> ПТ</label>
+</div>
+<div class="filter-group">
+<button id="todayBtn" class="filter-today">Сегодня</button>
+<button id="resetFiltersBtn" class="reset-filter-btn">Сброс фильтра</button>
+</div>
+</div>
+
+<div id="adminPanel" class="admin-panel" style="display:none;">
+<span>Режим администратора активен.</span>
+<button class="btn-success" onclick="addTask()">➕ Добавить задачу (Контроль)</button>
+<button class="btn-info" onclick="manageDepartments()">🏢 Отделы</button>
+<button class="btn-warning" onclick="manageMonths()">📅 Месяцы</button>
+<button class="btn-primary" onclick="saveChanges()">💾 Сохранить изменения</button>
+<button class="reset-btn" onclick="logoutAdmin()">Выйти</button>
+</div>
+
+<div id="modal" class="modal">
+<div class="modal-content" id="modalContent"></div>
+</div>
+
+<div class="tabs" id="tabsContainer">
+<button class="tab-btn active" data-tab="tab2">Контроль задач</button>
+<button class="tab-btn" data-tab="tab1">Ежедневный Самоконтроль</button>
+<button class="tab-btn" data-tab="tab4" id="editorTabBtn" style="display:none;">Редактор задач</button>
+<button class="tab-btn" data-tab="tab3" id="statsTabBtn" style="display:none;">Статистика</button>
+</div>
+
+<div id="contentContainer">
+<div id="tab1" class="tab-content"></div>
+<div id="tab2" class="tab-content active"></div>
+<div id="tab3" class="tab-content"></div>
+<div id="tab4" class="tab-content"></div>
+</div>
+
+<div class="footer">
+<span>Данные синхронизируются в реальном времени.</span>
+<button id="adminBtn" class="admin-btn">Админ</button>
+</div>
+
+<script>
+// ====================================================================
+// 1. ПОДКЛЮЧЕНИЕ SUPABASE
+// ====================================================================
+const SUPABASE_URL = 'https://pqfswgavkhotvtdcfbcm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_eB_viieych0bhJapY0tL_g_9y5zJ9DQ';
+
+const { createClient } = supabase;
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUserId = null;
+let appData = null;
+let subscription = null;
+
+const DEFAULT_DEPARTMENTS = [
+{ id: '1_КРД', label: '1 отдел Вика' },
+{ id: '1_НВР_ВЛД', label: '1 отдел Артем' },
+{ id: '2', label: '2 отдел' },
+{ id: '3', label: '3 отдел' },
+{ id: '4', label: '4 отдел' },
+{ id: '5', label: '5 отдел' },
+{ id: '6', label: '6 отдел' },
+{ id: '7', label: '7 отдел' },
+{ id: '8', label: '8 отдел' },
+{ id: '9_Денис', label: '9 отдел Денис' },
+{ id: '9_Катя', label: '9 отдел Катя' },
+{ id: '9_Дима', label: '9 отдел Дима' },
+{ id: '10', label: '10 отдел' },
+{ id: '11', label: '11 отдел' },
+{ id: '12_Вика', label: '12 отдел Вика' },
+{ id: '12_Аня', label: '12 отдел Аня' },
+{ id: '13', label: '13 отдел' },
+{ id: '14', label: '14 отдел' },
+{ id: '15', label: '15 отдел' }
+];
+
+const DEFAULT_CONTROL_TASKS = {
+tasks: [
+{ id: 't1', title: 'Согласовать бюджет', description: 'Согласовать бюджет с финансовым отделом до 15 числа', deadline: '2026-09-15', type: 'Контроль задач' },
+{ id: 't2', title: 'Подготовить отчёт', description: 'Подготовить ежемесячный отчёт по продажам', deadline: '2026-09-20', type: 'Контроль задач' },
+{ id: 't3', title: 'Провести встречу', description: 'Провести встречу с командой по проекту', deadline: '2026-09-25', type: 'Контроль задач' }
+],
+taskStatus: {},
+logs: []
+};
+
+function initDefaultControlTasks() {
+const tasks = DEFAULT_CONTROL_TASKS.tasks;
+tasks.forEach(t => {
+DEFAULT_DEPARTMENTS.forEach(dept => {
+const key = t.id + '_' + dept.id;
+DEFAULT_CONTROL_TASKS.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
+});
+});
+}
+initDefaultControlTasks();
+
+// ====================================================================
+// 2. ЗАГРУЗКА / СОХРАНЕНИЕ ДАННЫХ
+// ====================================================================
+async function loadAppData() {
+try {
+const { data, error } = await supabaseClient.from('app_data').select('data').eq('id', 'main').single();
+if (error) {
+if (error.code === 'PGRST116') {
+const initialData = createInitialData();
+await supabaseClient.from('app_data').insert([{ id: 'main', data: initialData }]);
+appData = initialData;
+} else { console.error('Ошибка загрузки:', error); return; }
+} else {
+appData = migrateAppData(data.data);
+}
+setupRealtimeSubscription();
+onDataLoaded();
+} catch (e) { console.error('Ошибка:', e); }
+}
+
+function createInitialData() {
+return {
+departments: JSON.parse(JSON.stringify(DEFAULT_DEPARTMENTS)),
+commonTasks: [],
+assignedTasks: {},
+checkboxStates: {},
+controlTasks: JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS)),
+monthsVisibility: [true, true, true, true, true]
+};
+}
+
+function migrateAppData(data) {
+if (data.commonTasks && data.departments) {
+if (!data.assignedTasks) data.assignedTasks = {};
+if (!data.checkboxStates) data.checkboxStates = {};
+if (!data.monthsVisibility) data.monthsVisibility = [true, true, true, true, true];
+if (!data.controlTasks) data.controlTasks = JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS));
+if (!data.controlTasks.logs) data.controlTasks.logs = [];
+if (!data.controlTasks.taskStatus) data.controlTasks.taskStatus = {};
+return data;
+}
+// Миграция со старого формата (dailyTasks)
+const newData = {
+departments: JSON.parse(JSON.stringify(DEFAULT_DEPARTMENTS)),
+commonTasks: [],
+assignedTasks: {},
+checkboxStates: {},
+controlTasks: data.controlTasks || JSON.parse(JSON.stringify(DEFAULT_CONTROL_TASKS)),
+monthsVisibility: [true, true, true, true, true]
+};
+const taskMap = new Map();
+for (const dow in (data.dailyTasks || {})) {
+(data.dailyTasks[dow] || []).forEach(title => {
+if (!taskMap.has(title)) {
+const id = 'ct_' + (taskMap.size + 1) + '_' + Date.now();
+taskMap.set(title, id);
+newData.commonTasks.push({ id, title, note: '' });
+}
+});
+}
+const firstDept = newData.departments[0];
+newData.assignedTasks[firstDept.id] = {};
+for (const dow in (data.dailyTasks || {})) {
+newData.assignedTasks[firstDept.id][dow] = (data.dailyTasks[dow] || []).map(t => taskMap.get(t));
+}
+return newData;
+}
+
+function setupRealtimeSubscription() {
+if (subscription) { subscription.unsubscribe(); subscription = null; }
+subscription = supabaseClient.channel('app_data_changes')
+.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_data', filter: 'id=eq.main' }, payload => {
+appData = migrateAppData(payload.new.data);
+onDataLoaded();
+}).subscribe();
+}
+
+function onDataLoaded() {
+if (!appData) return;
+const activeTab = document.querySelector('.tab-content.active');
+if (activeTab) {
+const tabId = activeTab.id;
+if (tabId === 'tab1') buildTab1();
+else if (tabId === 'tab2') buildTab2();
+else if (tabId === 'tab3') buildTab3();
+else if (tabId === 'tab4') buildTab4();
+} else switchTab('tab2');
+}
+
+async function saveAppData() {
+if (!appData) return;
+try {
+const { error } = await supabaseClient.from('app_data').update({ data: appData }).eq('id', 'main');
+if (error) console.error('Ошибка сохранения:', error);
+} catch (e) { console.error('Ошибка сохранения:', e); }
+}
+
+function addLog(taskId, depId, action, taskType, comment) {
+if (!appData) return;
+const now = new Date();
+const logEntry = {
+taskId, depId, action,
+timestamp: now.toISOString(),
+date: now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+userType: isAdmin ? 'admin' : 'user',
+taskType: taskType || 'Контроль задач',
+comment: comment || '',
+userId: currentUserId || 'anonymous'
+};
+if (!appData.controlTasks.logs) appData.controlTasks.logs = [];
+appData.controlTasks.logs.push(logEntry);
+saveAppData();
+}
+
+// ====================================================================
+// 3. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+// ====================================================================
+const YEAR = 2026;
+const MONTHS = ['Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const MONTH_INDEXES = [7, 8, 9, 10, 11];
+
+let selectedMonths = [0,1,2,3,4];
+let selectedDays = [1,2,3,4,5];
+let showTodayOnly = false;
+let isAdmin = false;
+let hasUnsavedChanges = false;
+let changeLog = [];
+
+function addChange(desc) { if (isAdmin) { changeLog.push(desc); hasUnsavedChanges = true; } }
+
+function loadState() {
+try {
+const savedMonths = localStorage.getItem('filter_months');
+if (savedMonths) selectedMonths = JSON.parse(savedMonths);
+const savedDays = localStorage.getItem('filter_days');
+if (savedDays) selectedDays = JSON.parse(savedDays);
+const savedToday = localStorage.getItem('filter_today');
+if (savedToday === 'true') showTodayOnly = true;
+const savedAdmin = localStorage.getItem('isAdmin');
+if (savedAdmin === 'true') isAdmin = true;
+} catch(e) {}
+
+document.querySelectorAll('.month-filter').forEach(cb => {
+cb.checked = selectedMonths.includes(parseInt(cb.value));
+});
+document.querySelectorAll('.day-filter').forEach(cb => {
+cb.checked = selectedDays.includes(parseInt(cb.value));
+});
+const todayBtn = document.getElementById('todayBtn');
+if (showTodayOnly) { todayBtn.classList.add('active'); todayBtn.textContent = 'Сегодня (вкл)'; }
+else { todayBtn.classList.remove('active'); todayBtn.textContent = 'Сегодня'; }
+const adminBtn = document.getElementById('adminBtn');
+if (isAdmin) {
+adminBtn.classList.add('active');
+adminBtn.textContent = 'Админ (вкл)';
+document.getElementById('adminPanel').style.display = 'flex';
+document.getElementById('statsTabBtn').style.display = 'inline-block';
+document.getElementById('editorTabBtn').style.display = 'inline-block';
+} else {
+adminBtn.classList.remove('active');
+adminBtn.textContent = 'Админ';
+document.getElementById('adminPanel').style.display = 'none';
+document.getElementById('statsTabBtn').style.display = 'none';
+document.getElementById('editorTabBtn').style.display = 'none';
+}
+if (!isAdmin) { hasUnsavedChanges = false; changeLog = []; }
+}
+
+function saveFilter() {
+localStorage.setItem('filter_months', JSON.stringify(selectedMonths));
+localStorage.setItem('filter_days', JSON.stringify(selectedDays));
+localStorage.setItem('filter_today', showTodayOnly ? 'true' : 'false');
+localStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+}
+
+function getDatesForDay(monthIndex, dayOfWeek) {
+const dates = [];
+const date = new Date(YEAR, monthIndex, 1);
+let diff = dayOfWeek - date.getDay();
+if (diff < 0) diff += 7;
+date.setDate(date.getDate() + diff);
+while (date.getMonth() === monthIndex) {
+dates.push(date.getDate());
+date.setDate(date.getDate() + 7);
+}
+return dates;
+}
+
+function getWeeksForMonth(monthIndex) {
+const weeks = [];
+let firstDate = new Date(YEAR, monthIndex, 1);
+let dayOfWeek = firstDate.getDay();
+firstDate.setDate(firstDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+let current = new Date(firstDate);
+while (current.getMonth() <= monthIndex && current.getFullYear() === YEAR) {
+const week = [];
+let hasDayInMonth = false;
+for (let d = 0; d < 5; d++) {
+const dateObj = new Date(current);
+dateObj.setDate(dateObj.getDate() + d);
+week.push({ dayOfWeek: d + 1, monthIndex: dateObj.getMonth(), date: dateObj.getDate() });
+if (dateObj.getMonth() === monthIndex) hasDayInMonth = true;
+}
+if (hasDayInMonth) weeks.push(week);
+current.setDate(current.getDate() + 7);
+if (current.getMonth() > monthIndex) break;
+}
+return weeks;
+}
+
+function isDayPassedByDate(dateObj) {
+const now = new Date();
+const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const planned = new Date(YEAR, dateObj.monthIndex, dateObj.date);
+return today > planned;
+}
+
+function formatDate(monthIndex, day) {
+return new Date(YEAR, monthIndex, day).toISOString().slice(0, 10);
+}
+
+// ====================================================================
+// 4. ЗАДАЧИ ДЛЯ ОТДЕЛА/ДНЯ
+// ====================================================================
+function getTasksForDeptDay(deptId, dow) {
+const ids = (appData.assignedTasks[deptId] && appData.assignedTasks[deptId][dow]) || [];
+return ids.map(id => appData.commonTasks.find(t => t.id === id)).filter(Boolean);
+}
+
+// ====================================================================
+// 5. ВКЛАДКА 1 — ЕЖЕДНЕВНЫЙ САМОКОНТРОЛЬ
+// ====================================================================
+let currentDeptTab1 = null;
+
+function buildTab1() {
+const container = document.getElementById('tab1');
+container.innerHTML = '';
+
+if (!currentDeptTab1 || !appData.departments.find(d => d.id === currentDeptTab1)) {
+currentDeptTab1 = appData.departments[0] ? appData.departments[0].id : null;
+}
+
+let html = '<div class="tabs" style="margin-bottom:10px;">';
+appData.departments.forEach(t => {
+const active = t.id === currentDeptTab1 ? 'active' : '';
+html += `<button class="tab-btn ${active}" data-dept="${t.id}">${escapeHtml(t.label)}</button>`;
+});
+html += '</div>';
+container.innerHTML = html;
+
+container.querySelectorAll('.tab-btn[data-dept]').forEach(btn => {
+btn.addEventListener('click', function() {
+currentDeptTab1 = this.dataset.dept;
+buildTab1();
+});
+});
+
+const tableContainer = document.createElement('div');
+tableContainer.id = 'tab1TableContainer';
+container.appendChild(tableContainer);
+
+if (currentDeptTab1) {
+tableContainer.appendChild(buildTableForDept(currentDeptTab1));
+}
+}
+
+function escapeHtml(s) {
+if (!s) return '';
+return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildTableForDept(departmentId) {
+const tasksByDay = {};
+for (let dow = 1; dow <= 5; dow++) tasksByDay[dow] = getTasksForDeptDay(departmentId, dow);
+
+if (showTodayOnly) return buildTodayTable(departmentId, tasksByDay);
+
+const displayMonths = MONTH_INDEXES.filter((_, idx) => selectedMonths.includes(idx) && appData.monthsVisibility[idx]);
+if (displayMonths.length === 0) {
+const div = document.createElement('div');
+div.className = 'no-data';
+div.textContent = 'Нет видимых месяцев';
+return div;
+}
+
+const monthWeeks = displayMonths.map(mIdx => ({
+monthIndex: mIdx,
+monthName: MONTHS[MONTH_INDEXES.indexOf(mIdx)],
+weeks: getWeeksForMonth(mIdx)
+}));
+
+const activeDays = [...selectedDays].sort();
+const table = document.createElement('table');
+const thead = document.createElement('thead');
+const tbody = document.createElement('tbody');
+
+const monthRow = document.createElement('tr');
+const emptyHead = document.createElement('th');
+emptyHead.textContent = '';
+monthRow.appendChild(emptyHead);
+monthWeeks.forEach(mw => {
+const th = document.createElement('th');
+th.textContent = mw.monthName;
+th.colSpan = mw.weeks.length;
+th.className = 'month-header';
+monthRow.appendChild(th);
+});
+thead.appendChild(monthRow);
+
+const dayNames = ['', 'ПОНЕДЕЛЬНИК', 'ВТОРНИК', 'СРЕДА', 'ЧЕТВЕРГ', 'ПЯТНИЦА'];
+
+activeDays.forEach(dow => {
+const dayRow = document.createElement('tr');
+const dayNameCell = document.createElement('td');
+dayNameCell.textContent = dayNames[dow];
+dayNameCell.className = `day-header day-${dow}`;
+dayRow.appendChild(dayNameCell);
+
+monthWeeks.forEach(mw => {
+mw.weeks.forEach((week, wi) => {
+const td = document.createElement('td');
+const dayData = week.find(w => w.dayOfWeek === dow);
+if (dayData) {
+td.textContent = dayData.date;
+td.style.fontWeight = 'bold';
+td.className = `day-${dow}`;
+if (wi === 0) td.classList.add('week-start');
+} else {
+td.textContent = '';
+td.className = 'empty-cell';
+}
+if (wi === mw.weeks.length - 1) td.classList.add('month-end');
+dayRow.appendChild(td);
+});
+});
+tbody.appendChild(dayRow);
+
+const tasks = tasksByDay[dow];
+tasks.forEach((task, taskIdx) => {
+const taskRow = document.createElement('tr');
+const taskNameCell = document.createElement('td');
+taskNameCell.className = `task-name day-${dow}`;
+const taskSpan = document.createElement('span');
+taskSpan.textContent = task.title;
+taskNameCell.appendChild(taskSpan);
+
+const infoBtn = document.createElement('button');
+infoBtn.textContent = 'ℹ️';
+infoBtn.className = 'task-info-btn';
+infoBtn.title = 'Посмотреть заметку';
+infoBtn.addEventListener('click', function(e) {
+e.stopPropagation();
+const note = task.note || 'Нет заметки';
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Заметка к задаче</h3>
+<p><strong>Задача:</strong> ${escapeHtml(task.title)}</p>
+<div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${escapeHtml(note)}</div>
+<button class="btn-cancel" onclick="closeModal()">Закрыть</button>
+`;
+modal.classList.add('visible');
+});
+taskNameCell.appendChild(infoBtn);
+
+if (isAdmin) {
+const delBtn = document.createElement('button');
+delBtn.textContent = '❌';
+delBtn.className = 'task-del-btn';
+delBtn.title = 'Убрать задачу из этого дня (для текущего отдела)';
+delBtn.addEventListener('click', function(e) {
+e.stopPropagation();
+if (!confirm(`Убрать задачу "${task.title}" из ${dayNames[dow].toLowerCase()} для отдела "${appData.departments.find(d => d.id === departmentId).label}"?`)) return;
+const list = (appData.assignedTasks[departmentId] && appData.assignedTasks[departmentId][dow]) || [];
+appData.assignedTasks[departmentId] = appData.assignedTasks[departmentId] || {};
+appData.assignedTasks[departmentId][dow] = list.filter(id => id !== task.id);
+saveAppData();
+buildTab1();
+});
+taskNameCell.appendChild(delBtn);
+}
+
+taskRow.appendChild(taskNameCell);
+
+monthWeeks.forEach(mw => {
+mw.weeks.forEach((week, wi) => {
+const td = document.createElement('td');
+td.className = `checkbox-cell day-${dow}`;
+const dayData = week.find(w => w.dayOfWeek === dow);
+if (dayData) {
+const dateStr = formatDate(dayData.monthIndex, dayData.date);
+const cbId = `${departmentId}_${dow}_${task.id}_${dateStr}`;
+const isPassed = isDayPassedByDate(dayData);
+const cbState = appData.checkboxStates[cbId];
+const isChecked = cbState ? cbState.state === true : false;
+
+if (isPassed && !isChecked && !isAdmin) {
+const span = document.createElement('span');
+span.textContent = '✕';
+span.className = 'cross-mark';
+td.appendChild(span);
+td.classList.add('missed');
+} else {
+const cb = document.createElement('input');
+cb.type = 'checkbox';
+cb.id = cbId;
+cb.checked = isChecked;
+if (isPassed && !isAdmin) cb.disabled = true;
+cb.addEventListener('change', function() {
+const now = new Date().toISOString().slice(0, 10);
+if (!appData.checkboxStates) appData.checkboxStates = {};
+if (this.checked) {
+appData.checkboxStates[this.id] = { state: true, date: now };
+addLog('daily_' + dow + '_' + task.id, departmentId, 'done', 'Ежедневный Самоконтроль', '');
+} else {
+appData.checkboxStates[this.id] = { state: false, date: null };
+addLog('daily_' + dow + '_' + task.id, departmentId, 'uncheck', 'Ежедневный Самоконтроль', '');
+}
+saveAppData();
+updateCellStyle(this);
+});
+td.appendChild(cb);
+setTimeout(() => updateCellStyle(cb), 0);
+}
+} else {
+td.className = 'empty-cell';
+td.textContent = '';
+}
+if (wi === 0) td.classList.add('week-start');
+if (wi === mw.weeks.length - 1) td.classList.add('month-end');
+taskRow.appendChild(td);
+});
+});
+if (taskIdx === tasks.length - 1) taskRow.classList.add('day-end');
+tbody.appendChild(taskRow);
+});
+
+if (isAdmin) {
+const addRow = document.createElement('tr');
+const addCell = document.createElement('td');
+addCell.className = `task-name day-${dow}`;
+addCell.style.fontWeight = 'normal';
+const addBtn = document.createElement('button');
+addBtn.textContent = '➕ Добавить задачу на ' + dayNames[dow].toLowerCase();
+addBtn.style.fontSize = '12px';
+addBtn.style.padding = '2px 8px';
+addBtn.style.background = '#28a745';
+addBtn.style.color = '#fff';
+addBtn.style.border = 'none';
+addBtn.style.borderRadius = '4px';
+addBtn.style.cursor = 'pointer';
+addBtn.addEventListener('click', () => openAddTasksModal(departmentId, dow));
+addCell.appendChild(addBtn);
+addRow.appendChild(addCell);
+monthWeeks.forEach(mw => {
+mw.weeks.forEach((week, wi) => {
+const td = document.createElement('td');
+td.className = 'empty-cell';
+if (wi === 0) td.classList.add('week-start');
+if (wi === mw.weeks.length - 1) td.classList.add('month-end');
+addRow.appendChild(td);
+});
+});
+tbody.appendChild(addRow);
+}
+});
+
+table.appendChild(thead);
+table.appendChild(tbody);
+return table;
+}
+
+function buildTodayTable(departmentId, tasksByDay) {
+const container = document.createElement('div');
+const today = new Date();
+const todayMonth = today.getMonth();
+const todayDate = today.getDate();
+const todayDay = today.getDay();
+if (todayDay === 0 || todayDay === 6 || !MONTH_INDEXES.includes(todayMonth) || !appData.monthsVisibility[MONTH_INDEXES.indexOf(todayMonth)]) {
+const div = document.createElement('div');
+div.className = 'no-data';
+div.textContent = 'Нет данных для сегодня';
+return div;
+}
+const monthIdx = MONTH_INDEXES.indexOf(todayMonth);
+const table = document.createElement('table');
+const thead = document.createElement('thead');
+const tbody = document.createElement('tbody');
+
+const monthRow = document.createElement('tr');
+const emptyHead = document.createElement('th');
+emptyHead.textContent = '';
+monthRow.appendChild(emptyHead);
+const th = document.createElement('th');
+th.textContent = MONTHS[monthIdx];
+th.colSpan = 1;
+th.className = 'month-header';
+monthRow.appendChild(th);
+thead.appendChild(monthRow);
+
+const dateRow = document.createElement('tr');
+const dayNameCell = document.createElement('td');
+const dayNames = ['', 'ПОНЕДЕЛЬНИК', 'ВТОРНИК', 'СРЕДА', 'ЧЕТВЕРГ', 'ПЯТНИЦА'];
+dayNameCell.textContent = dayNames[todayDay];
+dayNameCell.className = `day-header day-${todayDay}`;
+dateRow.appendChild(dayNameCell);
+const dateTd = document.createElement('td');
+dateTd.textContent = todayDate;
+dateTd.style.fontWeight = 'bold';
+dateTd.className = `day-${todayDay}`;
+dateRow.appendChild(dateTd);
+tbody.appendChild(dateRow);
+
+const tasks = tasksByDay[todayDay] || [];
+tasks.forEach((task, taskIdx) => {
+const taskRow = document.createElement('tr');
+const taskNameCell = document.createElement('td');
+taskNameCell.className = `task-name day-${todayDay}`;
+taskNameCell.textContent = task.title;
+
+const infoBtn = document.createElement('button');
+infoBtn.textContent = 'ℹ️';
+infoBtn.className = 'task-info-btn';
+infoBtn.addEventListener('click', function(e) {
+e.stopPropagation();
+const note = task.note || 'Нет заметки';
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Заметка к задаче</h3>
+<p><strong>Задача:</strong> ${escapeHtml(task.title)}</p>
+<div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${escapeHtml(note)}</div>
+<button class="btn-cancel" onclick="closeModal()">Закрыть</button>
+`;
+modal.classList.add('visible');
+});
+taskNameCell.appendChild(infoBtn);
+taskRow.appendChild(taskNameCell);
+
+const td = document.createElement('td');
+td.className = `checkbox-cell day-${todayDay}`;
+const dateStr = formatDate(todayMonth, todayDate);
+const cbId = `${departmentId}_${todayDay}_${task.id}_${dateStr}`;
+const isPassed = isDayPassedByDate({ monthIndex: todayMonth, date: todayDate });
+const cbState = appData.checkboxStates[cbId];
+const isChecked = cbState ? cbState.state === true : false;
+if (isPassed && !isChecked && !isAdmin) {
+const span = document.createElement('span');
+span.textContent = '✕';
+span.className = 'cross-mark';
+td.appendChild(span);
+td.classList.add('missed');
+} else {
+const cb = document.createElement('input');
+cb.type = 'checkbox';
+cb.id = cbId;
+cb.checked = isChecked;
+if (isPassed && !isAdmin) cb.disabled = true;
+cb.addEventListener('change', function() {
+const now = new Date().toISOString().slice(0, 10);
+if (!appData.checkboxStates) appData.checkboxStates = {};
+if (this.checked) {
+appData.checkboxStates[this.id] = { state: true, date: now };
+addLog('daily_' + todayDay + '_' + task.id, departmentId, 'done', 'Ежедневный Самоконтроль', '');
+} else {
+appData.checkboxStates[this.id] = { state: false, date: null };
+addLog('daily_' + todayDay + '_' + task.id, departmentId, 'uncheck', 'Ежедневный Самоконтроль', '');
+}
+saveAppData();
+updateCellStyle(this);
+});
+td.appendChild(cb);
+setTimeout(() => updateCellStyle(cb), 0);
+}
+taskRow.appendChild(td);
+if (taskIdx === tasks.length - 1) taskRow.classList.add('day-end');
+tbody.appendChild(taskRow);
+});
+
+table.appendChild(thead);
+table.appendChild(tbody);
+return table;
+}
+
+function updateCellStyle(checkbox) {
+const td = checkbox.closest('td');
+if (!td) return;
+const cbState = appData.checkboxStates[checkbox.id];
+const savedState = cbState ? cbState.state : null;
+const savedDate = cbState ? cbState.date : null;
+const parts = checkbox.id.split('_');
+const plannedDate = parts[parts.length - 1];
+td.classList.remove('done-on-time', 'done-late', 'missed');
+if (savedState === true) {
+if (savedDate === plannedDate) td.classList.add('done-on-time');
+else td.classList.add('done-late');
+}
+}
+
+// ====================================================================
+// 6. ДОБАВЛЕНИЕ ЗАДАЧ В ДЕНЬ
+// ====================================================================
+function openAddTasksModal(deptId, dow) {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+const assigned = (appData.assignedTasks[deptId] && appData.assignedTasks[deptId][dow]) || [];
+const available = appData.commonTasks.filter(t => !assigned.includes(t.id));
+const dayNames = ['', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница'];
+const deptLabel = appData.departments.find(d => d.id === deptId)?.label || '';
+
+let html = `<h3>Добавить задачи</h3>`;
+html += `<p style="font-size:13px;color:#555;">Отдел: <b>${escapeHtml(deptLabel)}</b><br>День: <b>${dayNames[dow]}</b></p>`;
+
+if (available.length === 0) {
+html += '<p>Все задачи из общего списка уже назначены на этот день.</p>';
+} else {
+html += '<div style="max-height:300px;overflow-y:auto;text-align:left;border:1px solid #eee;border-radius:4px;padding:6px;">';
+available.forEach(t => {
+html += `<label style="display:block;padding:4px;font-size:14px;"><input type="checkbox" class="add-task-cb" value="${t.id}"> ${escapeHtml(t.title)}</label>`;
+});
+html += '</div>';
+html += `<button class="btn-ok" onclick="saveAddedTasks('${deptId}', ${dow})">Добавить выбранные</button>`;
+}
+html += `<button class="btn-cancel" onclick="closeModal()">Закрыть</button>`;
+content.innerHTML = html;
+modal.classList.add('visible');
+}
+
+function saveAddedTasks(deptId, dow) {
+const checkboxes = document.querySelectorAll('.add-task-cb:checked');
+const idsToAdd = Array.from(checkboxes).map(cb => cb.value);
+if (idsToAdd.length === 0) { closeModal(); return; }
+if (!appData.assignedTasks[deptId]) appData.assignedTasks[deptId] = {};
+if (!appData.assignedTasks[deptId][dow]) appData.assignedTasks[deptId][dow] = [];
+idsToAdd.forEach(id => {
+if (!appData.assignedTasks[deptId][dow].includes(id)) appData.assignedTasks[deptId][dow].push(id);
+});
+saveAppData();
+closeModal();
+buildTab1();
+}
+
+// ====================================================================
+// 7. ВКЛАДКА 2 — КОНТРОЛЬ ЗАДАЧ
+// ====================================================================
+function buildTab2() {
+const container = document.getElementById('tab2');
+container.innerHTML = '';
+const data = appData.controlTasks;
+const tasksSorted = [...data.tasks].sort((a, b) => {
+const da = a.deadline || '9999-12-31';
+const db = b.deadline || '9999-12-31';
+return da.localeCompare(db);
+});
+const taskStatus = data.taskStatus;
+
+if (tasksSorted.length === 0) {
+container.innerHTML = '<div class="no-data">Нет задач. Добавьте задачу в режиме админа.</div>';
+return;
+}
+
+const table = document.createElement('table');
+const thead = document.createElement('thead');
+const tbody = document.createElement('tbody');
+
+const deadlineRow = document.createElement('tr');
+const emptyTh = document.createElement('th');
+emptyTh.textContent = 'Отдел \\ Задача';
+emptyTh.className = 'sticky-col';
+deadlineRow.appendChild(emptyTh);
+tasksSorted.forEach(task => {
+const th = document.createElement('th');
+th.textContent = task.deadline || '—';
+th.style.fontWeight = 'normal';
+th.style.fontSize = '10px';
+deadlineRow.appendChild(th);
+});
+thead.appendChild(deadlineRow);
+
+const titleRow = document.createElement('tr');
+const emptyTh2 = document.createElement('th');
+emptyTh2.textContent = '';
+emptyTh2.className = 'sticky-col';
+titleRow.appendChild(emptyTh2);
+tasksSorted.forEach(task => {
+const th = document.createElement('th');
+th.className = 'task-title-cell';
+const span = document.createElement('span');
+span.textContent = task.title;
+span.className = 'task-desc';
+span.title = 'Кликните для подробного описания';
+span.addEventListener('click', e => { e.stopPropagation(); showTaskDescription(task); });
+th.appendChild(span);
+if (isAdmin) {
+const editBtn = document.createElement('button');
+editBtn.textContent = '✎';
+editBtn.style.marginLeft = '5px';
+editBtn.addEventListener('click', e => { e.stopPropagation(); editTask(task.id); });
+th.appendChild(editBtn);
+const delBtn = document.createElement('button');
+delBtn.textContent = '🗑';
+delBtn.style.marginLeft = '3px';
+delBtn.addEventListener('click', e => { e.stopPropagation(); deleteTask(task.id); });
+th.appendChild(delBtn);
+}
+titleRow.appendChild(th);
+});
+thead.appendChild(titleRow);
+
+appData.departments.forEach(dept => {
+const row = document.createElement('tr');
+const depCell = document.createElement('td');
+depCell.textContent = dept.label;
+depCell.className = 'sticky-col';
+row.appendChild(depCell);
+
+tasksSorted.forEach(task => {
+const key = task.id + '_' + dept.id;
+const status = taskStatus[key] || { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
+const td = document.createElement('td');
+
+let cellClass = '';
+if (status.blocked) cellClass = 'blocked-cell';
+else if (status.done) {
+cellClass = 'done-cell';
+td.title = 'Нажмите для просмотра комментария';
+td.addEventListener('click', () => {
+if (status.comment) showCommentWithEdit(task.id, dept.id, status.comment);
+else alert('Комментарий не был оставлен.');
+});
+} else {
+const now = new Date();
+if (task.deadline) {
+const deadline = new Date(task.deadline + 'T00:00:00');
+if (now > deadline) cellClass = 'overdue-cell';
+}
+const cb = document.createElement('input');
+cb.type = 'checkbox';
+cb.checked = false;
+cb.addEventListener('change', function() {
+if (this.checked) {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Подтверждение выполнения</h3>
+<p><strong>Задача:</strong> ${escapeHtml(task.title)}</p>
+<p><strong>Отдел:</strong> ${escapeHtml(dept.label)}</p>
+<p>Кратко опишите, что было сделано:</p>
+<textarea id="commentInput" rows="4" placeholder="Опишите, что было сделано..."></textarea>
+<button class="btn-ok" onclick="confirmTask('${task.id}', '${dept.id}')">Подтвердить</button>
+<button class="btn-cancel" onclick="cancelTaskCheck('${task.id}', '${dept.id}')">Отмена</button>
+`;
+modal.classList.add('visible');
+document.getElementById('commentInput').focus();
+} else {
+const data2 = appData.controlTasks;
+const key2 = task.id + '_' + dept.id;
+if (data2.taskStatus[key2]) {
+data2.taskStatus[key2].done = false;
+data2.taskStatus[key2].comment = '';
+data2.taskStatus[key2].doneDate = null;
+data2.taskStatus[key2].pendingComment = false;
+}
+saveAppData();
+addLog(task.id, dept.id, 'uncheck', 'Контроль задач', '');
+buildTab2();
+}
+});
+td.appendChild(cb);
+}
+
+if (status.blocked) { td.textContent = '⛔'; td.className = cellClass; }
+else if (status.done) { td.textContent = '✅'; td.className = cellClass; }
+else { td.className = cellClass; }
+
+if (isAdmin) {
+const blockBtn = document.createElement('button');
+blockBtn.textContent = status.blocked ? '🔓' : '🔒';
+blockBtn.style.marginLeft = '3px';
+blockBtn.addEventListener('click', e => {
+e.stopPropagation();
+const data2 = appData.controlTasks;
+const key2 = task.id + '_' + dept.id;
+if (!data2.taskStatus[key2]) data2.taskStatus[key2] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
+data2.taskStatus[key2].blocked = !data2.taskStatus[key2].blocked;
+if (data2.taskStatus[key2].blocked) {
+data2.taskStatus[key2].done = false;
+data2.taskStatus[key2].comment = '';
+data2.taskStatus[key2].doneDate = null;
+}
+addLog(task.id, dept.id, 'block', 'Контроль задач', '');
+saveAppData();
+addChange(`Блокировка для задачи "${task.title}" (${dept.label}) изменена.`);
+buildTab2();
+});
+td.appendChild(blockBtn);
+}
+row.appendChild(td);
+});
+tbody.appendChild(row);
+});
+
+table.appendChild(thead);
+table.appendChild(tbody);
+container.appendChild(table);
+}
+
+function showCommentWithEdit(taskId, depId, currentComment) {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+const task = appData.controlTasks.tasks.find(t => t.id === taskId);
+const dept = appData.departments.find(d => d.id === depId);
+content.innerHTML = `
+<h3>Комментарий к выполнению</h3>
+<p><strong>Задача:</strong> ${escapeHtml(task?.title || '')}</p>
+<p><strong>Отдел:</strong> ${escapeHtml(dept?.label || '')}</p>
+<div style="text-align:left;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:10px;border-radius:4px;max-height:300px;overflow-y:auto;">${escapeHtml(currentComment)}</div>
+<br>
+<button class="btn-ok" onclick="editCommentMode('${taskId}', '${depId}')">Редактировать</button>
+<button class="btn-cancel" onclick="closeModal()">Закрыть</button>
+`;
+modal.classList.add('visible');
+}
+
+function editCommentMode(taskId, depId) {
+const status = appData.controlTasks.taskStatus[taskId + '_' + depId];
+if (!status) return;
+const task = appData.controlTasks.tasks.find(t => t.id === taskId);
+const dept = appData.departments.find(d => d.id === depId);
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Редактирование комментария</h3>
+<p><strong>Задача:</strong> ${escapeHtml(task?.title || '')}</p>
+<p><strong>Отдел:</strong> ${escapeHtml(dept?.label || '')}</p>
+<textarea id="editCommentText" rows="4">${escapeHtml(status.comment || '')}</textarea>
+<button class="btn-ok" onclick="saveCommentEdit('${taskId}', '${depId}')">Сохранить</button>
+<button class="btn-cancel" onclick="closeModal()">Отмена</button>
+`;
+}
+
+function saveCommentEdit(taskId, depId) {
+const newComment = document.getElementById('editCommentText').value.trim();
+if (!newComment) { alert('Комментарий не может быть пустым.'); return; }
+const key = taskId + '_' + depId;
+if (appData.controlTasks.taskStatus[key]) {
+appData.controlTasks.taskStatus[key].comment = newComment;
+saveAppData();
+addLog(taskId, depId, 'edit_comment', 'Контроль задач', newComment);
+closeModal();
+alert('Комментарий обновлён.');
+buildTab2();
+}
+}
+
+function confirmTask(taskId, depId) {
+const comment = document.getElementById('commentInput').value.trim();
+if (!comment) { alert('Комментарий обязателен.'); return; }
+const key = taskId + '_' + depId;
+if (!appData.controlTasks.taskStatus[key]) appData.controlTasks.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
+appData.controlTasks.taskStatus[key].done = true;
+appData.controlTasks.taskStatus[key].comment = comment;
+appData.controlTasks.taskStatus[key].doneDate = new Date().toISOString();
+saveAppData();
+addLog(taskId, depId, 'done', 'Контроль задач', comment);
+closeModal();
+alert('Задача отмечена как выполненная.');
+buildTab2();
+}
+
+function cancelTaskCheck(taskId, depId) {
+const key = taskId + '_' + depId;
+if (appData.controlTasks.taskStatus[key]) {
+appData.controlTasks.taskStatus[key].done = false;
+appData.controlTasks.taskStatus[key].pendingComment = false;
+}
+saveAppData();
+closeModal();
+buildTab2();
+}
+
+// ====================================================================
+// 8. ВКЛАДКА 3 — СТАТИСТИКА
+// ====================================================================
+function buildTab3() {
+const container = document.getElementById('tab3');
+container.innerHTML = '';
+if (!isAdmin) { container.innerHTML = '<div class="no-data">Только для администратора.</div>'; return; }
+
+const tasks = appData.controlTasks.tasks;
+const allLogs = appData.controlTasks.logs || [];
+
+const filterDiv = document.createElement('div');
+filterDiv.className = 'stats-filter';
+filterDiv.innerHTML = `
+<label>Тип: <select id="statsTypeFilter">
+<option value="all">Все</option>
+<option value="Ежедневный Самоконтроль">Ежедневные</option>
+<option value="Контроль задач">Разовые</option>
+</select></label>
+<label>Отдел: <select id="statsDeptFilter"><option value="all">Все</option>${appData.departments.map((d,i) => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join('')}</select></label>
+<label>Дата: <select id="statsDateFilter">
+<option value="all">Все</option>
+<option value="today">Сегодня</option>
+<option value="week">Неделя</option>
+</select></label>
+<button onclick="applyStatsFilters()">Применить</button>
+`;
+container.appendChild(filterDiv);
+
+const statsContainer = document.createElement('div');
+statsContainer.id = 'statsContainer';
+container.appendChild(statsContainer);
+
+function renderStats() {
+const typeFilter = document.getElementById('statsTypeFilter').value;
+const deptFilter = document.getElementById('statsDeptFilter').value;
+const dateFilter = document.getElementById('statsDateFilter').value;
+
+let filtered = allLogs.filter(l => l.userType === 'user');
+if (typeFilter !== 'all') filtered = filtered.filter(l => l.taskType === typeFilter);
+if (deptFilter !== 'all') filtered = filtered.filter(l => String(l.depId) === String(deptFilter));
+
+const now = new Date();
+const todayStr = now.toISOString().slice(0, 10);
+if (dateFilter === 'today') filtered = filtered.filter(l => l.timestamp && l.timestamp.slice(0, 10) === todayStr);
+else if (dateFilter === 'week') {
+const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+filtered = filtered.filter(l => l.timestamp >= weekAgo.toISOString());
+}
+
+const statusMap = {};
+filtered.forEach(log => {
+const key = log.taskId + '_' + log.depId;
+if (!statusMap[key] || new Date(log.timestamp) > new Date(statusMap[key].timestamp)) statusMap[key] = log;
+});
+
+statsContainer.innerHTML = '';
+
+const statusTable = document.createElement('table');
+statusTable.className = 'stats-table';
+const thead = document.createElement('thead');
+thead.innerHTML = `<tr><th>Задача</th><th>Тип</th><th>Отдел</th><th>Статус</th><th>Комментарий</th><th>Дата</th></tr>`;
+statusTable.appendChild(thead);
+const tbody = document.createElement('tbody');
+
+Object.keys(statusMap).forEach(key => {
+const log = statusMap[key];
+let taskTitle = log.taskId;
+let taskType = log.taskType || 'Контроль задач';
+if (!log.taskId.startsWith('daily_') && !log.taskId.startsWith('note_')) {
+const t = tasks.find(x => x.id === log.taskId);
+if (t) taskTitle = t.title;
+}
+const dept = appData.departments.find(d => String(d.id) === String(log.depId));
+const deptLabel = dept ? dept.label : ('Отдел ' + log.depId);
+const status = log.action === 'done' ? '✅ Выполнено' : (log.action === 'block' ? '⛔ Заблокировано' : '⏳ Не выполнено');
+const tr = document.createElement('tr');
+tr.innerHTML = `<td>${escapeHtml(taskTitle)}</td><td>${taskType}</td><td>${escapeHtml(deptLabel)}</td><td>${status}</td><td style="white-space:pre-wrap;max-width:150px;">${escapeHtml(log.comment || '')}</td><td>${log.date || log.timestamp}</td>`;
+tbody.appendChild(tr);
+});
+statusTable.appendChild(tbody);
+statsContainer.appendChild(statusTable);
+
+const logsDiv = document.createElement('div');
+logsDiv.innerHTML = '<h3>Логи действий</h3>';
+const logTable = document.createElement('table');
+logTable.className = 'stats-table';
+const logThead = document.createElement('thead');
+logThead.innerHTML = `<tr><th>Задача</th><th>Тип</th><th>Время</th><th>Действие</th><th>Комментарий</th></tr>`;
+logTable.appendChild(logThead);
+const logTbody = document.createElement('tbody');
+const sorted = [...filtered].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+sorted.forEach(log => {
+let taskTitle = log.taskId;
+let taskType = log.taskType || 'Контроль задач';
+if (!log.taskId.startsWith('daily_') && !log.taskId.startsWith('note_')) {
+const t = tasks.find(x => x.id === log.taskId);
+if (t) taskTitle = t.title;
+}
+const actionLabel = {done:'Выполнено', uncheck:'Снято', block:'Блокировка', edit_note:'Ред. заметки', delete_note:'Уд. заметки', edit_comment:'Ред. комментария'}[log.action] || log.action;
+const tr = document.createElement('tr');
+tr.innerHTML = `<td>${escapeHtml(taskTitle)}</td><td>${taskType}</td><td>${log.date || log.timestamp}</td><td>${actionLabel}</td><td style="white-space:pre-wrap;max-width:150px;">${escapeHtml(log.comment || '')}</td>`;
+logTbody.appendChild(tr);
+});
+logTable.appendChild(logTbody);
+logsDiv.appendChild(logTable);
+statsContainer.appendChild(logsDiv);
+}
+
+window.applyStatsFilters = renderStats;
+renderStats();
+}
+
+// ====================================================================
+// 9. ВКЛАДКА 4 — РЕДАКТОР ОБЩЕГО СПИСКА ЗАДАЧ
+// ====================================================================
+function buildTab4() {
+const container = document.getElementById('tab4');
+container.innerHTML = '';
+if (!isAdmin) { container.innerHTML = '<div class="no-data">Только для администратора.</div>'; return; }
+
+const wrap = document.createElement('div');
+wrap.style.padding = '10px';
+
+const h = document.createElement('h3');
+h.textContent = 'Общий список задач';
+wrap.appendChild(h);
+
+const hint = document.createElement('p');
+hint.style.fontSize = '13px';
+hint.style.color = '#666';
+hint.textContent = 'Задачи отсюда можно назначать конкретным отделам в конкретные дни. Управление — во вкладке "Ежедневный Самоконтроль" в режиме админа.';
+wrap.appendChild(hint);
+
+const table = document.createElement('table');
+table.className = 'common-tasks-table';
+const thead = document.createElement('thead');
+thead.innerHTML = '<tr><th style="width:35%">Название задачи</th><th>Заметка</th><th style="width:60px">Действия</th></tr>';
+table.appendChild(thead);
+const tbody = document.createElement('tbody');
+
+appData.commonTasks.forEach(task => {
+const tr = document.createElement('tr');
+
+const titleTd = document.createElement('td');
+const titleInput = document.createElement('input');
+titleInput.type = 'text';
+titleInput.value = task.title;
+titleInput.addEventListener('change', function() {
+const v = this.value.trim();
+if (!v) { this.value = task.title; return; }
+task.title = v;
+saveAppData();
+buildTab1();
+});
+titleTd.appendChild(titleInput);
+tr.appendChild(titleTd);
+
+const noteTd = document.createElement('td');
+const noteInput = document.createElement('textarea');
+noteInput.value = task.note || '';
+noteInput.addEventListener('change', function() {
+task.note = this.value;
+saveAppData();
+});
+noteTd.appendChild(noteInput);
+tr.appendChild(noteTd);
+
+const delTd = document.createElement('td');
+const delBtn = document.createElement('button');
+delBtn.textContent = '❌';
+delBtn.style.background = '#dc3545';
+delBtn.style.color = '#fff';
+delBtn.style.border = 'none';
+delBtn.style.padding = '4px 8px';
+delBtn.style.borderRadius = '4px';
+delBtn.style.cursor = 'pointer';
+delBtn.addEventListener('click', () => {
+if (!confirm(`Удалить задачу "${task.title}" из общего списка?\nОна также будет удалена из всех назначений.`)) return;
+appData.commonTasks = appData.commonTasks.filter(t => t.id !== task.id);
+for (const deptId in appData.assignedTasks) {
+for (const dow in appData.assignedTasks[deptId]) {
+appData.assignedTasks[deptId][dow] = appData.assignedTasks[deptId][dow].filter(id => id !== task.id);
+}
+}
+saveAppData();
+buildTab4();
+buildTab1();
+});
+delTd.appendChild(delBtn);
+tr.appendChild(delTd);
+
+tbody.appendChild(tr);
+});
+table.appendChild(tbody);
+wrap.appendChild(table);
+
+const addBtn = document.createElement('button');
+addBtn.textContent = '➕ Добавить задачу';
+addBtn.style.marginTop = '12px';
+addBtn.style.padding = '8px 16px';
+addBtn.style.background = '#28a745';
+addBtn.style.color = '#fff';
+addBtn.style.border = 'none';
+addBtn.style.borderRadius = '4px';
+addBtn.style.cursor = 'pointer';
+addBtn.style.fontSize = '14px';
+addBtn.addEventListener('click', () => {
+const newId = 'ct_' + Date.now();
+appData.commonTasks.push({ id: newId, title: 'Новая задача', note: '' });
+saveAppData();
+buildTab4();
+});
+wrap.appendChild(addBtn);
+
+container.appendChild(wrap);
+}
+
+// ====================================================================
+// 10. РЕДАКТИРОВАНИЕ КОНТРОЛЬНЫХ ЗАДАЧ
+// ====================================================================
+function showTaskDescription(task) {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>${escapeHtml(task.title)}</h3>
+<p><strong>Описание:</strong> ${escapeHtml(task.description || 'Нет описания')}</p>
+<p><strong>Дедлайн:</strong> ${escapeHtml(task.deadline || 'Не задан')}</p>
+<button class="btn-cancel" onclick="closeModal()">Закрыть</button>
+`;
+modal.classList.add('visible');
+}
+
+function editTask(taskId) {
+const task = appData.controlTasks.tasks.find(t => t.id === taskId);
+if (!task) return;
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Редактирование задачи</h3>
+<input type="text" id="editTitle" value="${escapeHtml(task.title)}" placeholder="Название">
+<textarea id="editDesc" placeholder="Описание">${escapeHtml(task.description || '')}</textarea>
+<input type="date" id="editDeadline" value="${task.deadline || ''}">
+<button class="btn-ok" onclick="saveEditTask('${taskId}')">Сохранить</button>
+<button class="btn-cancel" onclick="closeModal()">Отмена</button>
+`;
+modal.classList.add('visible');
+}
+
+function saveEditTask(taskId) {
+const title = document.getElementById('editTitle').value.trim();
+const description = document.getElementById('editDesc').value.trim();
+const deadline = document.getElementById('editDeadline').value;
+if (!title) { alert('Название обязательно'); return; }
+const task = appData.controlTasks.tasks.find(t => t.id === taskId);
+if (task) {
+task.title = title; task.description = description; task.deadline = deadline;
+saveAppData();
+addChange(`Задача обновлена: "${title}"`);
+}
+closeModal();
+buildTab2();
+}
+
+function deleteTask(taskId) {
+if (!confirm('Удалить задачу?')) return;
+const task = appData.controlTasks.tasks.find(t => t.id === taskId);
+if (task) addChange(`Удалена задача "${task.title}"`);
+appData.controlTasks.tasks = appData.controlTasks.tasks.filter(t => t.id !== taskId);
+Object.keys(appData.controlTasks.taskStatus).forEach(key => {
+if (key.startsWith(taskId + '_')) delete appData.controlTasks.taskStatus[key];
+});
+saveAppData();
+alert('Задача удалена.');
+buildTab2();
+}
+
+function addTask() {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Добавить задачу (Контроль)</h3>
+<input type="text" id="newTitle" placeholder="Название задачи">
+<textarea id="newDesc" placeholder="Описание"></textarea>
+<input type="date" id="newDeadline">
+<button class="btn-ok" onclick="saveNewTask()">Добавить</button>
+<button class="btn-cancel" onclick="closeModal()">Отмена</button>
+`;
+modal.classList.add('visible');
+}
+
+function saveNewTask() {
+const title = document.getElementById('newTitle').value.trim();
+const description = document.getElementById('newDesc').value.trim();
+const deadline = document.getElementById('newDeadline').value;
+if (!title) { alert('Название обязательно'); return; }
+const newId = 't' + Date.now();
+appData.controlTasks.tasks.push({ id: newId, title, description, deadline, type: 'Контроль задач' });
+appData.departments.forEach(dept => {
+const key = newId + '_' + dept.id;
+appData.controlTasks.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
+});
+saveAppData();
+addChange(`Добавлена задача "${title}"`);
+alert('Задача добавлена.');
+closeModal();
+buildTab2();
+}
+
+// ====================================================================
+// 11. УПРАВЛЕНИЕ ОТДЕЛАМИ
+// ====================================================================
+function manageDepartments() {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+let html = '<h3>Управление отделами</h3>';
+html += '<p style="font-size:12px;color:#666;">Можно изменить название, удалить или добавить новый отдел.</p>';
+html += '<div style="max-height:400px;overflow-y:auto;text-align:left;border:1px solid #eee;border-radius:4px;padding:6px;">';
+appData.departments.forEach((dept, idx) => {
+html += `<div style="display:flex;gap:8px;padding:6px 4px;align-items:center;border-bottom:1px solid #f0f0f0;">
+<input type="text" value="${escapeHtml(dept.label)}" data-idx="${idx}" class="dept-label-input" style="flex:1;padding:4px 6px;border:1px solid #ccc;border-radius:4px;">
+<button onclick="deleteDepartment(${idx})" style="background:#dc3545;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;">❌</button>
+</div>`;
+});
+html += '</div>';
+html += '<div style="margin-top:12px;display:flex;gap:8px;"><input type="text" id="newDeptLabel" placeholder="Название нового отдела" style="flex:1;padding:6px;border:1px solid #ccc;border-radius:4px;"><button onclick="addDepartment()" style="padding:6px 16px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;">Добавить</button></div>';
+html += '<div style="margin-top:12px;"><button class="btn-ok" onclick="saveDepartmentsLabels()">Сохранить названия</button><button class="btn-cancel" onclick="closeModal()">Закрыть</button></div>';
+content.innerHTML = html;
+modal.classList.add('visible');
+}
+
+function saveDepartmentsLabels() {
+document.querySelectorAll('.dept-label-input').forEach(input => {
+const idx = parseInt(input.dataset.idx);
+const v = input.value.trim();
+if (v) appData.departments[idx].label = v;
+});
+saveAppData();
+closeModal();
+buildTab1();
+buildTab2();
+alert('Названия сохранены.');
+}
+
+function addDepartment() {
+const label = document.getElementById('newDeptLabel').value.trim();
+if (!label) { alert('Введите название'); return; }
+const newId = 'd_' + Date.now();
+appData.departments.push({ id: newId, label });
+if (!appData.assignedTasks[newId]) appData.assignedTasks[newId] = {};
+appData.controlTasks.tasks.forEach(task => {
+const key = task.id + '_' + newId;
+if (!appData.controlTasks.taskStatus[key]) {
+appData.controlTasks.taskStatus[key] = { done: false, comment: '', blocked: false, doneDate: null, pendingComment: false };
+}
+});
+saveAppData();
+closeModal();
+manageDepartments();
+buildTab1();
+buildTab2();
+}
+
+function deleteDepartment(idx) {
+const dept = appData.departments[idx];
+if (!confirm(`Удалить отдел "${dept.label}"?`)) return;
+appData.departments.splice(idx, 1);
+saveAppData();
+closeModal();
+manageDepartments();
+buildTab1();
+buildTab2();
+}
+
+// ====================================================================
+// 12. УПРАВЛЕНИЕ ВИДИМОСТЬЮ МЕСЯЦЕВ
+// ====================================================================
+function manageMonths() {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+let html = '<h3>Видимость месяцев</h3><p style="font-size:13px;color:#666;">Скрытые месяцы не будут отображаться у пользователей.</p>';
+MONTHS.forEach((name, idx) => {
+const v = appData.monthsVisibility[idx];
+html += `<label style="display:block;padding:8px;font-size:16px;text-align:left;"><input type="checkbox" class="month-vis-cb" data-idx="${idx}" ${v ? 'checked' : ''}> ${name}</label>`;
+});
+html += '<button class="btn-ok" onclick="saveMonthsVisibility()">Сохранить</button>';
+html += '<button class="btn-cancel" onclick="closeModal()">Отмена</button>';
+content.innerHTML = html;
+modal.classList.add('visible');
+}
+
+function saveMonthsVisibility() {
+document.querySelectorAll('.month-vis-cb').forEach(cb => {
+const idx = parseInt(cb.dataset.idx);
+appData.monthsVisibility[idx] = cb.checked;
+});
+saveAppData();
+closeModal();
+applyMonthVisibilityToFilters();
+buildTab1();
+}
+
+function applyMonthVisibilityToFilters() {
+document.querySelectorAll('.month-filter').forEach(cb => {
+const idx = parseInt(cb.value);
+const label = cb.closest('label');
+const visible = appData.monthsVisibility[idx];
+label.style.display = visible ? '' : 'none';
+if (!visible) cb.checked = false;
+});
+}
+
+// ====================================================================
+// 13. СОХРАНЕНИЕ И ВЫХОД
+// ====================================================================
+function saveChanges() {
+if (!hasUnsavedChanges) { alert('Нет несохранённых изменений.'); return; }
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+let changesHtml = changeLog.map(item => `<div class="change-item">• ${escapeHtml(item)}</div>`).join('');
+content.innerHTML = `
+<h3>Подтверждение</h3>
+<p>Изменения будут сохранены:</p>
+<div style="max-height:250px;overflow-y:auto;text-align:left;margin:10px 0;border:1px solid #eee;border-radius:4px;">${changesHtml}</div>
+<button class="btn-ok" onclick="confirmSave()">Подтвердить</button>
+<button class="btn-cancel" onclick="closeModal()">Отмена</button>
+`;
+modal.classList.add('visible');
+}
+
+function confirmSave() {
+hasUnsavedChanges = false;
+changeLog = [];
+closeModal();
+alert('Изменения сохранены.');
+}
+
+function logoutAdmin() {
+if (hasUnsavedChanges && !confirm('Есть несохранённые изменения. Выйти?')) return;
+isAdmin = false;
+hasUnsavedChanges = false;
+changeLog = [];
+saveFilter();
+const adminBtn = document.getElementById('adminBtn');
+adminBtn.classList.remove('active');
+adminBtn.textContent = 'Админ';
+document.getElementById('adminPanel').style.display = 'none';
+document.getElementById('statsTabBtn').style.display = 'none';
+document.getElementById('editorTabBtn').style.display = 'none';
+const activeTab = document.querySelector('.tab-content.active');
+if (activeTab) {
+const tabId = activeTab.id;
+if (tabId === 'tab1') buildTab1();
+else if (tabId === 'tab2') buildTab2();
+else if (tabId === 'tab3') buildTab3();
+else if (tabId === 'tab4') buildTab4();
+}
+}
+
+// ====================================================================
+// 14. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+// ====================================================================
+function switchTab(tabId) {
+document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
+document.getElementById(tabId).classList.add('active');
+const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+if (btn) btn.classList.add('active');
+document.getElementById('filterPanel').style.display = (tabId === 'tab1') ? 'flex' : 'none';
+
+if (tabId === 'tab1') buildTab1();
+else if (tabId === 'tab2') buildTab2();
+else if (tabId === 'tab3') buildTab3();
+else if (tabId === 'tab4') buildTab4();
+}
+
+// ====================================================================
+// 15. АУТЕНТИФИКАЦИЯ И СТАРТ
+// ====================================================================
+async function signInAnonymously() {
+try {
+const { data, error } = await supabaseClient.auth.signInAnonymously();
+if (error) throw error;
+currentUserId = data.user.id;
+console.log('Анонимный вход выполнен, uid:', currentUserId);
+} catch (error) {
+console.error('Ошибка анонимного входа:', error);
+}
+loadAppData();
+}
+
+function init() {
+loadState();
+applyMonthVisibilityToFilters();
+
+document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
+});
+
+document.querySelectorAll('.month-filter, .day-filter').forEach(cb => {
+cb.addEventListener('change', function() {
+if (showTodayOnly) {
+showTodayOnly = false;
+document.getElementById('todayBtn').classList.remove('active');
+document.getElementById('todayBtn').textContent = 'Сегодня';
+}
+selectedMonths = [];
+document.querySelectorAll('.month-filter').forEach(x => { if (x.checked && appData.monthsVisibility[parseInt(x.value)]) selectedMonths.push(parseInt(x.value)); });
+selectedDays = [];
+document.querySelectorAll('.day-filter').forEach(x => { if (x.checked) selectedDays.push(parseInt(x.value)); });
+saveFilter();
+if (document.getElementById('tab1').classList.contains('active')) buildTab1();
+});
+});
+
+document.getElementById('todayBtn').addEventListener('click', function() {
+showTodayOnly = !showTodayOnly;
+if (showTodayOnly) { this.classList.add('active'); this.textContent = 'Сегодня (вкл)'; }
+else { this.classList.remove('active'); this.textContent = 'Сегодня'; }
+saveFilter();
+if (document.getElementById('tab1').classList.contains('active')) buildTab1();
+});
+
+document.getElementById('resetFiltersBtn').addEventListener('click', function() {
+selectedMonths = [0,1,2,3,4];
+selectedDays = [1,2,3,4,5];
+showTodayOnly = false;
+document.querySelectorAll('.month-filter').forEach(cb => cb.checked = appData.monthsVisibility[parseInt(cb.value)]);
+document.querySelectorAll('.day-filter').forEach(cb => cb.checked = true);
+document.getElementById('todayBtn').classList.remove('active');
+document.getElementById('todayBtn').textContent = 'Сегодня';
+saveFilter();
+if (document.getElementById('tab1').classList.contains('active')) buildTab1();
+});
+
+document.getElementById('adminBtn').addEventListener('click', function() {
+if (isAdmin) logoutAdmin();
+else openAdminModal();
+});
+
+document.getElementById('modal').addEventListener('click', function(e) {
+if (e.target === this) closeModal();
+});
+
+switchTab('tab2');
+}
+
+function openAdminModal() {
+const modal = document.getElementById('modal');
+const content = document.getElementById('modalContent');
+content.innerHTML = `
+<h3>Вход администратора</h3>
+<input type="text" id="adminLogin" placeholder="Логин">
+<input type="password" id="adminPwd" placeholder="Пароль">
+<button class="btn-ok" onclick="checkAdminCredentials()">Войти</button>
+<button class="btn-cancel" onclick="closeModal()">Отмена</button>
+`;
+modal.classList.add('visible');
+document.getElementById('adminLogin').focus();
+document.getElementById('adminLogin').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('adminPwd').focus(); });
+document.getElementById('adminPwd').addEventListener('keydown', e => { if (e.key === 'Enter') checkAdminCredentials(); });
+}
+
+function checkAdminCredentials() {
+const login = document.getElementById('adminLogin').value.trim();
+const pwd = document.getElementById('adminPwd').value.trim();
+if (login === 'admin' && pwd === '14082026') {
+isAdmin = true;
+saveFilter();
+closeModal();
+const adminBtn = document.getElementById('adminBtn');
+adminBtn.classList.add('active');
+adminBtn.textContent = 'Админ (вкл)';
+document.getElementById('adminPanel').style.display = 'flex';
+document.getElementById('statsTabBtn').style.display = 'inline-block';
+document.getElementById('editorTabBtn').style.display = 'inline-block';
+hasUnsavedChanges = false;
+changeLog = [];
+const activeTab = document.querySelector('.tab-content.active');
+if (activeTab) {
+const tabId = activeTab.id;
+if (tabId === 'tab1') buildTab1();
+else if (tabId === 'tab2') buildTab2();
+else if (tabId === 'tab3') buildTab3();
+else if (tabId === 'tab4') buildTab4();
+}
+} else alert('Неверный логин или пароль');
+}
+
+function closeModal() {
+document.getElementById('modal').classList.remove('visible');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+signInAnonymously();
+const check = setInterval(() => {
+if (appData) { clearInterval(check); init(); }
+}, 300);
+setTimeout(() => {
+clearInterval(check);
+if (!appData) { appData = createInitialData(); init(); }
+}, 5000);
+});
+</script>
 </body>
 </html>
