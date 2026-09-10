@@ -319,6 +319,7 @@
         // 3. СОХРАНЕНИЕ ДАННЫХ
         // ====================================================================
         async function saveAppData() {
+            console.log('💾 saveAppData вызван');
             if (!appData) return;
             try {
                 const { error } = await supabaseClient
@@ -359,6 +360,7 @@
         }
 
         function addLog(taskId, depId, action, taskType, comment) {
+            console.log('🔍 addLog вызван:', taskId, depId, action);
             if (!appData) return;
             const now = new Date();
             const timestamp = now.toISOString();
@@ -718,6 +720,7 @@
                                     cb.checked = isChecked;
                                     if (isPassed && !isAdmin) cb.disabled = true;
                                     cb.addEventListener('change', function() {
+                                        console.log('✅ Чекбокс изменён, checked =', this.checked);
                                         const now = new Date().toISOString().slice(0, 10);
                                         const checked = this.checked;
                                         if (checked) {
