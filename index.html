@@ -255,7 +255,7 @@ if (!data.controlTasks.logs) data.controlTasks.logs = [];
 if (!data.controlTasks.taskStatus) data.controlTasks.taskStatus = {};
 return data;
 }
-// Миграция со старого формата (dailyTasks)
+// Миграция со старого формата
 const newData = {
 departments: JSON.parse(JSON.stringify(DEFAULT_DEPARTMENTS)),
 commonTasks: [],
@@ -435,6 +435,14 @@ function formatDate(monthIndex, day) {
 return new Date(YEAR, monthIndex, day).toISOString().slice(0, 10);
 }
 
+// Преобразует "2026-09-15" в "15.09.2026"
+function formatDateRu(isoDate) {
+if (!isoDate) return '—';
+const parts = isoDate.split('-');
+if (parts.length !== 3) return isoDate;
+return parts[2] + '.' + parts[1] + '.' + parts[0];
+}
+
 // ====================================================================
 // 4. ЗАДАЧИ ДЛЯ ОТДЕЛА/ДНЯ
 // ====================================================================
@@ -583,10 +591,10 @@ if (isAdmin) {
 const delBtn = document.createElement('button');
 delBtn.textContent = '❌';
 delBtn.className = 'task-del-btn';
-delBtn.title = 'Убрать задачу из этого дня (для текущего отдела)';
+delBtn.title = 'Убрать задачу из этого дня';
 delBtn.addEventListener('click', function(e) {
 e.stopPropagation();
-if (!confirm(`Убрать задачу "${task.title}" из ${dayNames[dow].toLowerCase()} для отдела "${appData.departments.find(d => d.id === departmentId).label}"?`)) return;
+if (!confirm(`Убрать задачу "${task.title}" из ${dayNames[dow].toLowerCase()}?`)) return;
 const list = (appData.assignedTasks[departmentId] && appData.assignedTasks[departmentId][dow]) || [];
 appData.assignedTasks[departmentId] = appData.assignedTasks[departmentId] || {};
 appData.assignedTasks[departmentId][dow] = list.filter(id => id !== task.id);
@@ -657,7 +665,7 @@ const addCell = document.createElement('td');
 addCell.className = `task-name day-${dow}`;
 addCell.style.fontWeight = 'normal';
 const addBtn = document.createElement('button');
-addBtn.textContent = '➕ Добавить задачу на ' + dayNames[dow].toLowerCase();
+addBtn.textContent = '➕ Добавить задачу';
 addBtn.style.fontSize = '12px';
 addBtn.style.padding = '2px 8px';
 addBtn.style.background = '#28a745';
@@ -886,7 +894,7 @@ emptyTh.className = 'sticky-col';
 deadlineRow.appendChild(emptyTh);
 tasksSorted.forEach(task => {
 const th = document.createElement('th');
-th.textContent = task.deadline || '—';
+th.textContent = formatDateRu(task.deadline);
 th.style.fontWeight = 'normal';
 th.style.fontSize = '10px';
 deadlineRow.appendChild(th);
@@ -1113,7 +1121,7 @@ filterDiv.innerHTML = `
 <option value="Ежедневный Самоконтроль">Ежедневные</option>
 <option value="Контроль задач">Разовые</option>
 </select></label>
-<label>Отдел: <select id="statsDeptFilter"><option value="all">Все</option>${appData.departments.map((d,i) => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join('')}</select></label>
+<label>Отдел: <select id="statsDeptFilter"><option value="all">Все</option>${appData.departments.map(d => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join('')}</select></label>
 <label>Дата: <select id="statsDateFilter">
 <option value="all">Все</option>
 <option value="today">Сегодня</option>
@@ -1225,7 +1233,7 @@ wrap.appendChild(h);
 const hint = document.createElement('p');
 hint.style.fontSize = '13px';
 hint.style.color = '#666';
-hint.textContent = 'Задачи отсюда можно назначать конкретным отделам в конкретные дни. Управление — во вкладке "Ежедневный Самоконтроль" в режиме админа.';
+hint.textContent = 'Задачи отсюда можно назначать конкретным отделам в конкретные дни во вкладке "Ежедневный Самоконтроль".';
 wrap.appendChild(hint);
 
 const table = document.createElement('table');
@@ -1272,7 +1280,7 @@ delBtn.style.padding = '4px 8px';
 delBtn.style.borderRadius = '4px';
 delBtn.style.cursor = 'pointer';
 delBtn.addEventListener('click', () => {
-if (!confirm(`Удалить задачу "${task.title}" из общего списка?\nОна также будет удалена из всех назначений.`)) return;
+if (!confirm(`Удалить задачу "${task.title}" из общего списка?`)) return;
 appData.commonTasks = appData.commonTasks.filter(t => t.id !== task.id);
 for (const deptId in appData.assignedTasks) {
 for (const dow in appData.assignedTasks[deptId]) {
@@ -1321,7 +1329,7 @@ const content = document.getElementById('modalContent');
 content.innerHTML = `
 <h3>${escapeHtml(task.title)}</h3>
 <p><strong>Описание:</strong> ${escapeHtml(task.description || 'Нет описания')}</p>
-<p><strong>Дедлайн:</strong> ${escapeHtml(task.deadline || 'Не задан')}</p>
+<p><strong>Дедлайн:</strong> ${task.deadline ? formatDateRu(task.deadline) : 'Не задан'}</p>
 <button class="btn-cancel" onclick="closeModal()">Закрыть</button>
 `;
 modal.classList.add('visible');
@@ -1336,6 +1344,7 @@ content.innerHTML = `
 <h3>Редактирование задачи</h3>
 <input type="text" id="editTitle" value="${escapeHtml(task.title)}" placeholder="Название">
 <textarea id="editDesc" placeholder="Описание">${escapeHtml(task.description || '')}</textarea>
+<label style="display:block;text-align:left;font-size:13px;margin-top:6px;">Дедлайн:</label>
 <input type="date" id="editDeadline" value="${task.deadline || ''}">
 <button class="btn-ok" onclick="saveEditTask('${taskId}')">Сохранить</button>
 <button class="btn-cancel" onclick="closeModal()">Отмена</button>
@@ -1378,6 +1387,7 @@ content.innerHTML = `
 <h3>Добавить задачу (Контроль)</h3>
 <input type="text" id="newTitle" placeholder="Название задачи">
 <textarea id="newDesc" placeholder="Описание"></textarea>
+<label style="display:block;text-align:left;font-size:13px;margin-top:6px;">Дедлайн:</label>
 <input type="date" id="newDeadline">
 <button class="btn-ok" onclick="saveNewTask()">Добавить</button>
 <button class="btn-cancel" onclick="closeModal()">Отмена</button>
